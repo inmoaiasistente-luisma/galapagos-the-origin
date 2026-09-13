@@ -2270,9 +2270,11 @@ E4A exactly as it stands.
 
 ### 35.6 Scope
 
-Changed: **§23 packet `VS0-T01R`** (Tests row, new accepted-results row, E4 acceptance clause,
-Evidence row) · **§32.7** (E4 row → E4A / E4B) · header amendment record · **§35** (this section).
+Changed: header amendment record · **§20 criterion 1** (deletion-proof exception) · **§23 packet
+`VS0-T01R`** (Objective, Implementation requirements, Tests, accepted-results row, E4 acceptance
+clause, Evidence) · **§26 row 1R** · **§32.6** scope wording · **§32.7** (E4 → E4A / E4B) ·
+**§33.4** supersession annotation · **§35** (this amendment, including the preserved T01R status).
 
-Unchanged: the enforcement model · the ruleset · A-04 semantics · **E1A, E1B, E2, E3 and E5 in
-wording and acceptance** · every other task · canon, gameplay, persistence, workflows and repository
+Unchanged: the enforcement model · the ruleset · A-04 semantics · **the acceptance meaning of E1A,
+E1B, E2, E3 and E5** · every other VS0 task · canon, gameplay, persistence, workflows and repository
 configuration.
