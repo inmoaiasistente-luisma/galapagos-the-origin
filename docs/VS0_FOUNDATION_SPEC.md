@@ -15,6 +15,8 @@
                 A-04 (2026-09-13) — PR-enforcement semantics corrected. Ruleset stands;
                 A-03's test E1 withdrawn as invalid and replaced by E1A/E1B. The guarantee
                 is ASSOCIATION with a PR, not rejection of every push. See §33.
+                A-05 (2026-09-13) — MICRO. T01R test E2 evidence hardened: the merge PATH
+                must be proven by `headRefOid != mergeCommit`. See §34.
     DERIVES FROM: Master Canon v1.1 (ACCEPTED) · ADR-001 … ADR-008 (ACCEPTED) ·
                   ARCHITECTURE.md · CONVENTIONS.md · STATE_OWNERSHIP.md ·
                   CANON_CONFLICT_RESOLUTION.md (all ACCEPTED)
@@ -1106,10 +1108,10 @@ conditions are additions, never replacements.
 | **Branch** | `feature/VS0-T01R-enforcement-verification` |
 | **Implementation requirements** | **(a)** A repository ruleset exists exactly as specified in ADR-002 §1.3 — `enforcement: "active"`, target `refs/heads/main`, rules `pull_request` (`required_approving_review_count: 0`), `non_fast_forward`, `deletion`, and **`bypass_actors: []`**. **(b)** A single harmless, authorised line is added to `README.md` recording that `main` is enforced by a repository ruleset and pointing at ADR-002 §1.3 — this is the change that travels through the proof, and it is real content rather than a throwaway. **(c)** The five acceptance tests below are executed **from the owner/admin account**, because that is the account whose push was wrongly accepted. **(d)** Verbatim command output is captured for each. |
 | **Tests** | The five acceptance tests are the deliverable. There is no code to unit-test. |
-| **Acceptance criteria** | **A-03's E1 is WITHDRAWN as invalid** (A-04, §33): the commit it pushed was by construction the head of an open PR, so the rule treats it as associated and accepts it. It is replaced by E1A and E1B.<br><br>**E1A — unassociated direct push rejected.** Create a fresh disposable commit on a branch with **no open PR targeting `main`**, containing only an explicitly authorized harmless verification change. `git push origin <unassociated-commit>:main` must be **REJECTED — not associated with a pull request**; verbatim stderr captured. **If it is accepted, STOP: the `pull_request` rule is not enforcing its documented property.**<br>**E1B — associated-commit semantics, recorded not tested.** Document that a commit already the head of an open PR **may be accepted** when pushed directly under the `pull_request` rule. This is **not** a bypass failure — GitHub considers the change associated. **Project process still forbids it, and Codex must never use that path intentionally.**<br>**E2 — normal PR path.** A fresh authorized verification commit on a feature branch, opened as a PR and merged through GitHub's **normal merge operation** with `required approvals = 0`. **ACCEPTED. No `--admin`. No bypass.**<br>**E3 — force push rejected.** A non-fast-forward update to `main` is **REJECTED by `non_fast_forward`**; stderr captured.<br>**E4 — deletion rejected.** Deleting `main` is **REJECTED by the `deletion` rule**; stderr captured.<br>**E5 — ruleset readback.** `enforcement = active` · `bypass_actors = []` · target `refs/heads/main` · `pull_request` present · `non_fast_forward` present · `deletion` present; raw JSON captured with the ruleset id.<br><br>**E1A, E2, E3, E4 and E5 must all pass. E1A failing to fail is a hard stop.** |
+| **Acceptance criteria** | **A-03's E1 is WITHDRAWN as invalid** (A-04, §33): the commit it pushed was by construction the head of an open PR, so the rule treats it as associated and accepts it. It is replaced by E1A and E1B.<br><br>**E1A — unassociated direct push rejected.** Create a fresh disposable commit on a branch with **no open PR targeting `main`**, containing only an explicitly authorized harmless verification change. `git push origin <unassociated-commit>:main` must be **REJECTED — not associated with a pull request**; verbatim stderr captured. **If it is accepted, STOP: the `pull_request` rule is not enforcing its documented property.**<br>**E1B — associated-commit semantics, recorded not tested.** Document that a commit already the head of an open PR **may be accepted** when pushed directly under the `pull_request` rule. This is **not** a bypass failure — GitHub considers the change associated. **Project process still forbids it, and Codex must never use that path intentionally.**<br>**E2 — normal PR path.** A fresh authorized verification commit on a feature branch, opened as a PR and merged through GitHub's **normal merge operation** with `required approvals = 0`. **ACCEPTED. No `--admin`. No bypass.**<br>**E2 evidence must record `PR number` · `headRefOid` · `mergeCommit` · `reviewDecision` · the merge method/operation used, and acceptance requires `headRefOid != mergeCommit`** (A-05, §34). A PR reporting `MERGED` is **not** sufficient: PR #1 and PR #3 both report `MERGED` and neither was merged.<br>**E3 — force push rejected.** A non-fast-forward update to `main` is **REJECTED by `non_fast_forward`**; stderr captured.<br>**E4 — deletion rejected.** Deleting `main` is **REJECTED by the `deletion` rule**; stderr captured.<br>**E5 — ruleset readback.** `enforcement = active` · `bypass_actors = []` · target `refs/heads/main` · `pull_request` present · `non_fast_forward` present · `deletion` present; raw JSON captured with the ruleset id.<br><br>**E1A, E2, E3, E4 and E5 must all pass. E1A failing to fail is a hard stop.** |
 | **Persistence impact** | None |
 | **Canon impact** | None |
-| **Evidence** | Attached to the PR by hand (CI does not exist until T14): `t01r_e1a_unassociated_push_rejected.txt` · `t01r_e2_pr_merge.txt` · `t01r_e3_force_push_rejected.txt` · `t01r_e4_delete_rejected.txt` · `t01r_e5_ruleset.json`. **Verbatim output. Not a summary, not a screenshot of a settings page.** E1B produces no evidence file — it is a recorded semantic, not a test. |
+| **Evidence** | Attached to the PR by hand (CI does not exist until T14): `t01r_e1a_unassociated_push_rejected.txt` · `t01r_e2_pr_merge.txt` · `t01r_e3_force_push_rejected.txt` · `t01r_e4_delete_rejected.txt` · `t01r_e5_ruleset.json`. **Verbatim output. Not a summary, not a screenshot of a settings page.** E1B produces no evidence file — it is a recorded semantic, not a test.<br><br>**`t01r_e2_pr_merge.txt` must contain all five fields** — `PR number`, `headRefOid`, `mergeCommit`, `reviewDecision`, merge method/operation — **and show `headRefOid != mergeCommit`** (§34). |
 | **Parallelization** | **Blocks everything.** Nothing runs beside it, and nothing merges until it passes. |
 | **Stop conditions** | Any test that does not produce the expected outcome — especially **E1A failing to be rejected**, or **E2 failing to merge**. · The ruleset cannot be created with an empty `bypass_actors` on the current plan. · A legitimate PR merge is blocked by an approval requirement — suspect `require_extra_approval_for_unattributed_changes` (ADR-002 §1.4) and **report; do not work around it**. · Remediation would require reverting `46f76ff` or `0ca3206`, rewriting history, force-pushing, or deleting a branch — **none is authorized (§32, §33).** · The fix would require adding a bypass actor, or the **Restrict updates** rule — **neither is authorized; report instead.** |
 | **Explicitly forbidden** | Reverting `46f76ffbe2518884c2c5783415bdf446664b637f` or `0ca3206e77e59e421705f9e55ed9dbbeab87959f` · rewriting history · force-pushing anything · re-opening or re-creating PR #1 or PR #3 · re-implementing the four T01 files · adding a bypass actor · **adding the `update` (Restrict updates) rule** · pushing a PR-head commit directly to `main` even though GitHub would accept it · configuring required status checks (T14) |
@@ -1912,7 +1914,7 @@ Evidence is **verbatim command output**, attached to the PR by hand.
 |---|---|---|---|
 | **E1A** | Push a fresh commit **with no open PR targeting `main`**: `git push origin <unassociated-commit>:main` | **REJECTED — not associated with a pull request** | `t01r_e1a_unassociated_push_rejected.txt` |
 | **E1B** | *(Not a test — a recorded semantic.)* A commit that **is** an open PR's head, pushed directly | **May be ACCEPTED by GitHub. Not a bypass failure. Forbidden by project process.** | — |
-| **E2** | A fresh authorized commit on a feature branch, opened as a PR and merged by GitHub's **normal merge operation**, `required approvals = 0` | **ACCEPTED.** No `--admin`, no bypass | `t01r_e2_pr_merge.txt` |
+| **E2** | A fresh authorized commit on a feature branch, opened as a PR and merged by GitHub's **normal merge operation**, `required approvals = 0` | **ACCEPTED.** No `--admin`, no bypass. Evidence records `PR number` · `headRefOid` · `mergeCommit` · `reviewDecision` · merge method, and **`headRefOid != mergeCommit`** (§34) | `t01r_e2_pr_merge.txt` |
 | **E3** | Non-fast-forward update to `main` | **REJECTED** by `non_fast_forward` | `t01r_e3_force_push_rejected.txt` |
 | **E4** | Delete `main` | **REJECTED** by `deletion` | `t01r_e4_delete_rejected.txt` |
 | **E5** | Read the ruleset from the API | `enforcement: active` · `bypass_actors: []` · target `refs/heads/main` · `pull_request` · `non_fast_forward` · `deletion` | `t01r_e5_ruleset.json` |
@@ -2107,3 +2109,57 @@ changed. `save_version` unchanged.
 **A-03's test E1: withdrawn.**
 **VS0-T01: NOT ACCEPTED.**
 **VS0-T01R: READY** with tests E1A · E1B · E2 · E3 · E4 · E5.
+
+---
+
+## 34. Amendment A-05 (micro) — T01R E2 evidence hardening
+
+    DATE: 2026-09-13
+    ORIGIN: Owner decision, from the observation that PR #4's merge produced a distinguishing artifact
+    TYPE: Evidence clarification only. No change to the enforcement model, to A-04 semantics, or to
+          any other acceptance criterion.
+
+### 34.1 The problem with the old E2 evidence
+
+E2 proved that a pull request **reached a merged state**. It did not prove **how**.
+
+That is not sufficient on this repository, because the failure it must catch has already happened
+twice and left no trace in the PR state:
+
+| PR | `headRefOid` | `mergeCommit` | State | What actually happened |
+|---|---|---|---|---|
+| #1 | `46f76ff` | `46f76ff` | `MERGED` | **Direct push.** Never merged. |
+| #3 | `0ca3206` | `0ca3206` | `MERGED` | **Direct push.** Never merged. |
+| #4 | `99ca79c` | `f9fd0fd` | `MERGED` | **Merged by GitHub's PR operation.** |
+
+**All three report `MERGED`.** GitHub marks a PR merged when its head becomes an ancestor of the base
+branch, however it got there. So *"the PR says MERGED"* is exactly the kind of evidence A-03 and A-04
+already ruled insufficient — it records an outcome and says nothing about the path.
+
+### 34.2 The rule
+
+> **E2 evidence must record `PR number`, `headRefOid`, `mergeCommit`, `reviewDecision`, and the merge
+> method / operation used. Acceptance requires `headRefOid != mergeCommit`.**
+
+When GitHub performs a real pull-request merge it **creates a merge commit**, so the merge SHA differs
+from the branch head. A direct push creates nothing, so the two are identical. **The inequality is
+what proves the path**; the `MERGED` state proves only the destination.
+
+### 34.3 Scope
+
+This is an evidence clarification. Nothing else moves:
+
+- **The enforcement model is unchanged** — ruleset, `bypass_actors: []`, no Restrict updates.
+- **A-04's semantics are unchanged** — the guarantee is still association with a pull request.
+- **E1A, E1B, E3, E4 and E5 are unchanged**, in wording and in acceptance.
+- **No canon, gameplay, persistence, workflow or repository-configuration change.**
+
+Changed sections: **§23 packet VS0-T01R** (E2 acceptance clause, Evidence row) · **§32.7** (E2 row) ·
+header amendment record · **§34** (this section).
+
+### 34.4 A note on why this generalises
+
+The same question — *did the control run, or did the state merely end up looking right?* — is the one
+behind §22 condition 14 and behind every negative test in §20. E2 is now written the way those are:
+**it names the artifact that only the correct path can produce.** T14's Phase-2 proof cases should be
+read the same way when they are built.
