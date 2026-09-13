@@ -913,8 +913,10 @@ checklist for acceptance, not a summary.
    **associated with a pull request**; `required_approving_review_count` is **0**; force-push and
    deletion of `main` blocked; **Restrict updates is absent**.
    **Each is demonstrated by a live negative test, not by a settings dump** — a rejected
-   **unassociated** push (E1A), a rejected force-push (E3), a rejected deletion (E4), and one PR
-   merged with zero approvals (E2), plus the ruleset readback (E5) — VS0-T01R, §23 and §32.7.
+   **unassociated** push (E1A), a rejected force-push (E3), and one PR merged with zero approvals
+   (E2), plus the ruleset readback (E5) — VS0-T01R, §23 and §32.7. **Deletion protection is the
+   single deliberate exception: it is accepted on the E4A + E4B conjunction, because the
+   default-branch safeguard makes the ruleset's deletion behaviour unisolatable (§35).**
    *(Required status checks are Phase 2 — criterion 24.)*
 2. `.gitattributes` declares Git LFS for `*.png`, `*.ogg`, `*.wav`, `*.aseprite`.
 3. `.gitignore` excludes `.godot/`, `export/`, `evidence/`, `*.tmp`; `*.import` files **are**
@@ -1103,16 +1105,16 @@ conditions are additions, never replacements.
 
 | Field | Content |
 |---|---|
-| **Objective** | Install the Phase-1 **repository ruleset** (ADR-002 §1.3) and **prove** — by observed rejection, not by configuration — that direct push, force-push and deletion of `main` are refused, and that a PR merges with **0** approving reviews. |
+| **Objective** | Install the Phase-1 **repository ruleset** (ADR-002 §1.3) and **prove** — by observed rejection wherever the platform permits it, and by API readback only where it does not (§35) — that an **unassociated** push and a force-push to `main` are refused, that deletion of `main` is protected, and that a PR merges with **0** approving reviews. |
 | **Required reading** | **ADR-002 §1.3** (the incident and the exact ruleset) · §16.2 of this document · **§32** · `CONVENTIONS.md` §5 |
 | **Dependencies** | VS0-T01 content is on `main` (it already is). **Blocks every other VS0 task**: nothing else merges until enforcement is proven. |
 | **Allowed paths** | `/README.md` — **one line only**, recording the enforcement mechanism. Nothing else. |
 | **Forbidden paths** | `/.github/workflows/**` *(T14)* · `/docs/**` *(Claude and Luisma only)* · every other path |
 | **Branch** | `feature/VS0-T01R-enforcement-verification` |
-| **Implementation requirements** | **(a)** A repository ruleset exists exactly as specified in ADR-002 §1.3 — `enforcement: "active"`, target `refs/heads/main`, rules `pull_request` (`required_approving_review_count: 0`), `non_fast_forward`, `deletion`, and **`bypass_actors: []`**. **(b)** A single harmless, authorised line is added to `README.md` recording that `main` is enforced by a repository ruleset and pointing at ADR-002 §1.3 — this is the change that travels through the proof, and it is real content rather than a throwaway. **(c)** The five acceptance tests below are executed **from the owner/admin account**, because that is the account whose push was wrongly accepted. **(d)** Verbatim command output is captured for each. |
+| **Implementation requirements** | **(a)** A repository ruleset exists exactly as specified in ADR-002 §1.3 — `enforcement: "active"`, target `refs/heads/main`, rules `pull_request` (`required_approving_review_count: 0`), `non_fast_forward`, `deletion`, and **`bypass_actors: []`**. **(b)** A single harmless, authorised line is added to `README.md` recording that `main` is enforced by a repository ruleset and pointing at ADR-002 §1.3 — this is the change that travels through the proof, and it is real content rather than a throwaway. **(c)** Each acceptance test below is executed **from the owner/admin account**, because that is the account whose push was wrongly accepted. **Tests already recorded as PASS in the accepted-results row above are not rerun.** **(d)** Verbatim command output is captured for each. |
 | **Tests** | The acceptance tests are the deliverable. There is no code to unit-test. |
-| **Results already accepted (A-06, 2026-09-13)** | **E1A = PASS · E2 = PASS · E3 = PASS.** These are **accepted and must not be rerun.** Outstanding: **E4A** (API proof) · **E4B** (retain the rejection output already captured) · **E5** final readback. Then complete T01R reporting. `main` must still exist at `679fabfd3a9a9b0ceea544eed6db070eea5d7d9e`. |
-| **Acceptance criteria** | **A-03's E1 is WITHDRAWN as invalid** (A-04, §33): the commit it pushed was by construction the head of an open PR, so the rule treats it as associated and accepts it. It is replaced by E1A and E1B.<br><br>**E1A — unassociated direct push rejected.** Create a fresh disposable commit on a branch with **no open PR targeting `main`**, containing only an explicitly authorized harmless verification change. `git push origin <unassociated-commit>:main` must be **REJECTED — not associated with a pull request**; verbatim stderr captured. **If it is accepted, STOP: the `pull_request` rule is not enforcing its documented property.**<br>**E1B — associated-commit semantics, recorded not tested.** Document that a commit already the head of an open PR **may be accepted** when pushed directly under the `pull_request` rule. This is **not** a bypass failure — GitHub considers the change associated. **Project process still forbids it, and Codex must never use that path intentionally.**<br>**E2 — normal PR path.** A fresh authorized verification commit on a feature branch, opened as a PR and merged through GitHub's **normal merge operation** with `required approvals = 0`. **ACCEPTED. No `--admin`. No bypass.**<br>**E2 evidence must record `PR number` · `headRefOid` · `mergeCommit` · `reviewDecision` · the merge method/operation used, and acceptance requires `headRefOid != mergeCommit`** (A-05, §34). A PR reporting `MERGED` is **not** sufficient: PR #1 and PR #3 both report `MERGED` and neither was merged.<br>**E3 — force push rejected.** A non-fast-forward update to `main` is **REJECTED by `non_fast_forward`**; stderr captured.<br>**E4A — deletion rule proven by API.** The active `main-phase1` ruleset, read from the GitHub API, **targets `refs/heads/main`** · **contains a `deletion` rule** · **`enforcement: "active"`** · **`bypass_actors: []`**; raw JSON captured.<br>**E4B — deletion behaviourally rejected.** `git push origin --delete main` is **rejected**; verbatim stderr captured. **`main` is the default branch, so GitHub's default-branch safeguard may reject the deletion before the ruleset produces a distinguishable error. The absence of a ruleset-specific `GH013` message MUST NOT fail T01R** (A-06, §35).<br>**Deletion protection is accepted on the conjunction of all four:** (1) an active `deletion` rule proven by API readback · (2) deletion of `main` behaviourally rejected · (3) `main` still exists at the expected SHA · (4) no bypass actor exists. **Do not claim the behavioural rejection proves which layer fired.**<br>**E5 — ruleset readback.** `enforcement = active` · `bypass_actors = []` · target `refs/heads/main` · `pull_request` present · `non_fast_forward` present · `deletion` present; raw JSON captured with the ruleset id.<br><br>**E1A, E2, E3, E4 and E5 must all pass. E1A failing to fail is a hard stop.** |
+| **Results already accepted (A-06, 2026-09-13)** | **E1A = PASS · E2 = PASS · E3 = PASS.** These are **accepted and must not be rerun.** Outstanding: **E4A** (API proof) · **E4B** (rejection output already captured — retain it; acceptance outstanding) · **E5** final readback. Then complete T01R reporting. `main` must still exist at `679fabfd3a9a9b0ceea544eed6db070eea5d7d9e`. |
+| **Acceptance criteria** | **A-03's E1 is WITHDRAWN as invalid** (A-04, §33): the commit it pushed was by construction the head of an open PR, so the rule treats it as associated and accepts it. It is replaced by E1A and E1B.<br><br>**E1A — unassociated direct push rejected.** Create a fresh disposable commit on a branch with **no open PR targeting `main`**, containing only an explicitly authorized harmless verification change. `git push origin <unassociated-commit>:main` must be **REJECTED — not associated with a pull request**; verbatim stderr captured. **If it is accepted, STOP: the `pull_request` rule is not enforcing its documented property.**<br>**E1B — associated-commit semantics, recorded not tested.** Document that a commit already the head of an open PR **may be accepted** when pushed directly under the `pull_request` rule. This is **not** a bypass failure — GitHub considers the change associated. **Project process still forbids it, and Codex must never use that path intentionally.**<br>**E2 — normal PR path.** A fresh authorized verification commit on a feature branch, opened as a PR and merged through GitHub's **normal merge operation** with `required approvals = 0`. **ACCEPTED. No `--admin`. No bypass.**<br>**E2 evidence must record `PR number` · `headRefOid` · `mergeCommit` · `reviewDecision` · the merge method/operation used, and acceptance requires `headRefOid != mergeCommit`** (A-05, §34). A PR reporting `MERGED` is **not** sufficient: PR #1 and PR #3 both report `MERGED` and neither was merged.<br>**E3 — force push rejected.** A non-fast-forward update to `main` is **REJECTED by `non_fast_forward`**; stderr captured.<br>**E4A — deletion rule proven by API.** The active `main-phase1` ruleset, read from the GitHub API, **targets `refs/heads/main`** · **contains a `deletion` rule** · **`enforcement: "active"`** · **`bypass_actors: []`**; raw JSON captured.<br>**E4B — deletion behaviourally rejected.** `git push origin --delete main` is **rejected**; verbatim stderr captured. **`main` is the default branch, so GitHub's default-branch safeguard may reject the deletion before the ruleset produces a distinguishable error. The absence of a ruleset-specific `GH013` message MUST NOT fail T01R** (A-06, §35).<br>**Deletion protection is accepted on the conjunction of all four:** (1) an active `deletion` rule proven by API readback · (2) deletion of `main` behaviourally rejected · (3) `main` still exists at the expected SHA · (4) no bypass actor exists. **Do not claim the behavioural rejection proves which layer fired.**<br>**E5 — ruleset readback.** `enforcement = active` · `bypass_actors = []` · target `refs/heads/main` · `pull_request` present · `non_fast_forward` present · `deletion` present; raw JSON captured with the ruleset id.<br><br>**E1A, E2, E3, the E4A + E4B deletion-protection conjunction (the composite result recorded as E4), and E5 must all pass. E1A failing to fail is a hard stop.** |
 | **Persistence impact** | None |
 | **Canon impact** | None |
 | **Evidence** | Attached to the PR by hand (CI does not exist until T14): `t01r_e1a_unassociated_push_rejected.txt` · `t01r_e2_pr_merge.txt` · `t01r_e3_force_push_rejected.txt` · `t01r_e4a_deletion_rule.json` · `t01r_e4b_delete_rejected.txt` · `t01r_e5_ruleset.json`. **Verbatim output. Not a summary, not a screenshot of a settings page.** E1B produces no evidence file — it is a recorded semantic, not a test.<br><br>**`t01r_e2_pr_merge.txt` must contain all five fields** — `PR number`, `headRefOid`, `mergeCommit`, `reviewDecision`, merge method/operation — **and show `headRefOid != mergeCommit`** (§34). |
@@ -1474,7 +1476,7 @@ throughout — the property that makes every later bisect meaningful.
 | # | PR | Gate green at merge |
 |---|---|---|
 | 1 | T01 Repository bootstrap | — (files only. **Enforcement unproven — see row 1R**) |
-| **1R** | **T01R Enforcement remediation** | **Phase-1 enforcement proven live: E1 direct push rejected · E2 PR merged with 0 approvals · E3 force-push rejected · E4 deletion rejected · E5 `bypass_actors: []`** |
+| **1R** | **T01R Enforcement remediation** | **Phase-1 enforcement proven live: E1A unassociated push rejected · E2 PR merged with 0 approvals (`headRefOid != mergeCommit`) · E3 force-push rejected · E4A + E4B deletion protection · E5 `bypass_actors: []`** |
 | 2 | T02 Godot baseline | Project boots headless |
 | 3 | T03 Folder skeleton | Folder contract test |
 | 4 | T04 GUT | Gate 5 live |
@@ -1903,7 +1905,8 @@ re-implement its files.**
 `feature/VS0-T01R-enforcement-verification`.
 
 Scope: install the ruleset, make **one** harmless authorised line of change to `README.md`, and prove
-five things by observed rejection. It writes no gameplay, no engine, no workflow, no architecture.
+its acceptance tests — by observed rejection where the platform permits it, and by API readback where
+it does not (§35). It writes no gameplay, no engine, no workflow, no architecture.
 
 **It blocks every other VS0 task.** Nothing merges until enforcement is proven.
 
@@ -2038,6 +2041,11 @@ Authoritative table: **§32.7.** In summary:
 | **E3** | Force push **rejected** (`non_fast_forward`). |
 | **E4** | Deletion **rejected** (`deletion`). |
 | **E5** | Ruleset readback: active · `bypass_actors: []` · target · three rules present. |
+
+> **⚠ E4 SUPERSEDED BY A-06 (§35).** The E4 row above attributes the rejection to the `deletion`
+> rule. **That attribution is withdrawn** — the default-branch safeguard makes the layer
+> undeterminable. E4 is now the **E4A + E4B** conjunction, and every reference to "E4" in §33 means
+> that composite result. **§32.7 is authoritative.**
 
 **E1A must be genuinely unassociated** — a branch with no open PR to `main`, carrying only an
 explicitly authorized harmless verification change. If E1A is accepted, **stop**: the rule is not
@@ -2251,7 +2259,7 @@ proof is available, and no more when it is not.
 | **E2** — PR merged by GitHub's operation | **PASS — accepted, do not rerun.** PR #6: `headRefOid add3403` ≠ `mergeCommit 679fabf` |
 | **E3** — force push rejected | **PASS — accepted, do not rerun** |
 | **E4A** — deletion rule by API | **Outstanding** |
-| **E4B** — deletion behaviourally rejected | **Outstanding** — retain the rejection output already captured; do not repeat the attempt |
+| **E4B** — deletion behaviourally rejected | **Evidence already captured; acceptance outstanding** — retain the existing rejection output, do not repeat the attempt |
 | **E5** — final ruleset readback | **Outstanding** |
 
 Remaining work: capture E4A, retain E4B, verify `main` still exists at
