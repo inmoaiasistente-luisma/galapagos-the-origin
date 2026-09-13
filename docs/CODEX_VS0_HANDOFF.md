@@ -6,6 +6,9 @@
              A-03 (2026-09-13) — ENFORCEMENT INCIDENT: `main` is protected by a repository
              RULESET, not classic branch protection. VS0-T01R added and blocks everything.
              See spec §32 and ADR-002 §1.3.
+             A-04 (2026-09-13) — PR-enforcement semantics corrected. The guarantee is
+             ASSOCIATION with a PR, not rejection of every push. T01R test E1 withdrawn,
+             replaced by E1A/E1B. See spec §33 and ADR-002 §1.4.
     AUTHORITY LEVEL: 4 (operational handoff — subordinate to VS0_FOUNDATION_SPEC.md)
     FOR: Codex (implementation agent)
     SCOPE: VS0 only
@@ -122,6 +125,7 @@ Rules, without exception:
 |---|---|
 | Branch naming | `feature/VS0-T0n-<slug>` · `fix/VS0-T0n-<slug>` · `docs/<amendment-id>-<slug>` *(documentation and ADR amendments — Claude and Luisma only)* |
 | **Enforcement mechanism** | **A GitHub repository ruleset** (ADR-002 §1.3), `enforcement: "active"`, **`bypass_actors: []`**. **Classic branch protection is not authoritative and must never be cited as proof that a push is blocked.** |
+| **What the rule actually guarantees** | Every change reaching `main` is **associated with an open pull request** (ADR-002 §1.4). It does **not** reject every direct push: **a commit that already heads an open PR may be pushed directly and accepted by GitHub.** That is documented behaviour, not a bypass — **and project process forbids you from ever using it.** |
 | `main` | **Protected.** No direct pushes, no force-push, no deletion — by anyone, including you and including the owner. |
 | Merge | Pull request only — the ruleset's `pull_request` rule |
 | Approving GitHub reviews required | **0** — solo-owner phase (spec §16.2, §31.2). **This removes GitHub's approval count, not the review.** |
@@ -131,14 +135,21 @@ Rules, without exception:
 | `.github/workflows/` | **T14 owns it exclusively.** No other task creates or edits a workflow. |
 | Red gate | **Blocks merge.** Never "fixed" by weakening or skipping the test. |
 
-> **`git push origin HEAD:main` once succeeded on this repository, and it should not have** (spec
-> §32). The settings all read back correctly and the branch was still unprotected. You stopped
-> correctly and did not compound it — that is why it is recoverable.
+> **`git push origin HEAD:main` has succeeded on this repository twice, and should never have been
+> attempted either time** (spec §32, §33). On the second occasion the ruleset was live and correctly
+> configured — GitHub accepted the push because the commit already headed an open PR, which the
+> `pull_request` rule counts as associated. **The platform was working as documented. The process was
+> not being followed.**
 >
 > **Never push to `main`. Not to unblock yourself, not to save a round trip, not because GitHub let
-> you.** "The platform allowed it" is not authorization; the process is the authorization. If a push
-> to `main` is ever accepted again, **stop and report it as an incident** — do not revert it, do not
-> force-push over it, do not reconfigure anything.
+> you, and not because the commit is already in an open PR.** *"The platform allowed it"* is not
+> authorization; the process is the authorization. **The only path to `main` is GitHub's own merge
+> operation on a pull request.**
+>
+> If a push to `main` is ever accepted again, **stop and report it as an incident** — do not revert
+> it, do not force-push over it, do not reconfigure anything. And **never** propose closing the gap
+> with the **Restrict updates** rule: it is explicitly forbidden (ADR-002 §1.4) because it would block
+> legitimate merges.
 
 **Between T01 and T14 there are no required status checks, and that is deliberate** (spec §16.2,
 §30). Run your task's gates **locally**, through the same headless entry points CI will call. **Do
