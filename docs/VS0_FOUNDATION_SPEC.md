@@ -9,6 +9,9 @@
                 T14 ← T15 dependency reviewed and confirmed intentional. See §30.
                 A-02 (2026-09-13) — repository visibility PUBLIC; solo-owner review model
                 (0 approving GitHub reviews). See §31.
+                A-03 (2026-09-13) — ENFORCEMENT INCIDENT. Phase-1 PR-only enforcement moved
+                from classic branch protection to a repository RULESET after a direct push
+                to `main` was accepted. T01 not accepted; VS0-T01R added. See §32.
     DERIVES FROM: Master Canon v1.1 (ACCEPTED) · ADR-001 … ADR-008 (ACCEPTED) ·
                   ARCHITECTURE.md · CONVENTIONS.md · STATE_OWNERSHIP.md ·
                   CANON_CONFLICT_RESOLUTION.md (all ACCEPTED)
@@ -730,26 +733,41 @@ always-green gate is worse than an absent one.
 Branch protection is applied in **two phases**, because required status checks cannot reference
 workflows that do not yet exist.
 
-**Phase 1 — T01, at repository creation:**
+**Phase 1 — enforced by a repository RULESET (ADR-002 §1.3), proven by VS0-T01R:**
 
 | Rule | Value |
 |---|---|
 | Visibility | **PUBLIC** (ADR-002 §1.1). Everything committed is published. |
-| `main` | **Protected.** No direct pushes, by anyone, including agents. |
-| Merge | Pull request only |
+| **Enforcement mechanism** | **GitHub repository ruleset**, `enforcement: "active"`, targeting `refs/heads/main`. **Classic branch protection is not authoritative** — see the incident note below. |
+| `main` | **Protected.** No direct pushes, by anyone — owner, admin or agent. |
+| Merge | Pull request only — `pull_request` rule present |
 | `required_approving_review_count` | **0** — see the solo-owner note below |
-| `enforce_admins` | **true** |
-| Force-push to `main` | **Blocked** |
-| Deletion of `main` | **Blocked** |
-| Branches | `feature/<task-id>-<slug>`, `fix/<task-id>-<slug>` |
+| **`bypass_actors`** | **`[]` — empty, and it stays empty.** No bypass actor is authorized for direct pushes to `main`. |
+| Force-push to `main` | **Blocked** — `non_fast_forward` rule |
+| Deletion of `main` | **Blocked** — `deletion` rule |
+| Branches | `feature/<task-id>-<slug>`, `fix/<task-id>-<slug>`, `docs/<amendment-id>-<slug>` |
 | Parallel agents | **One writing agent per git worktree, always** |
 | Required status checks | **Deliberately not configured.** No VS0 workflow exists yet, so there is no stable check name to require. |
+
+> **Enforcement incident — read this before configuring anything (§32, ADR-002 §1.3).** Phase 1 was
+> originally enforced by **classic branch protection**. With `required_approving_review_count` at
+> `0`, a direct push to `main` was **accepted** while every setting still read back as specified.
+> Under classic protection the pull-request requirement lives *inside* the review object; emptying
+> that object left no condition for a push to violate, and `enforce_admins` cannot enforce a rule
+> that evaluates to nothing.
+>
+> A-02's claim that setting the count to 0 removes the approval requirement *"and nothing else"* is
+> **withdrawn as false.** In a ruleset, `pull_request` is an independent rule, which is why the
+> mechanism changed.
+>
+> **Configuration evidence is not enforcement evidence.** Phase 1 is satisfied only when a live
+> direct push has been **observed to be rejected** — never by reading the settings back.
 
 > **Why zero approvals, and what it does not mean (ADR-002 §1.2).** The repository has one eligible
 > GitHub account, and GitHub does not let a pull request's author approve their own PR. A non-zero
 > count makes **every** PR permanently unmergeable. Setting it to 0 removes GitHub's mechanical
-> approval requirement and **nothing else** — PR-only merge, blocked direct pushes, `enforce_admins`,
-> force-push and deletion protection all remain.
+> approval count **and nothing about who may push** — under the ruleset, the `pull_request` rule
+> blocks direct pushes independently of the approval count.
 >
 > **Review remains mandatory as process:** *Codex implements → Claude reviews → owner authorises
 > merge.* Merging without Claude's review is a process violation. When a second eligible account
@@ -865,9 +883,12 @@ VS0 is complete when **every** line below is true and demonstrated by an artifac
 checklist for acceptance, not a summary.
 
 **Repository**
-1. **Public** GitHub repository exists at `GITHUB_OWNER/GITHUB_REPOSITORY`; `main` is protected;
-   PR-only merge; `required_approving_review_count` is **0**; `enforce_admins` is **true**;
-   force-push and deletion of `main` blocked. *(Required status checks are Phase 2 — criterion 24.)*
+1. **Public** GitHub repository exists at `GITHUB_OWNER/GITHUB_REPOSITORY`; `main` is protected by
+   an **active repository ruleset** with `bypass_actors: []`; PR-only merge;
+   `required_approving_review_count` is **0**; force-push and deletion of `main` blocked.
+   **Each of these is demonstrated by a live negative test, not by a settings dump** — a rejected
+   direct push, a rejected force-push, a rejected deletion, and one PR merged with zero approvals
+   (VS0-T01R, §23). *(Required status checks are Phase 2 — criterion 24.)*
 2. `.gitattributes` declares Git LFS for `*.png`, `*.ogg`, `*.wav`, `*.aseprite`.
 3. `.gitignore` excludes `.godot/`, `export/`, `evidence/`, `*.tmp`; `*.import` files **are**
    committed.
@@ -980,6 +1001,16 @@ escalation suggestions. They are halts.
 > authority is a reporting defect in its own right, independent of whether the difference is later
 > approved. Recorded from VS0-T01 (§31.3).
 
+| # | Stop condition |
+|---|---|
+| 14 | **A control, gate or protection cannot be shown to fire.** Reading the configuration back is not proof. If the negative test does not fail as expected — the push is accepted, the lint passes broken input, the guard does not trip — **stop and report.** Do not proceed on the assumption that it works. |
+
+> **Stop condition 14 — configuration evidence is not enforcement evidence.** A settings dump proves
+> what was requested, not what the platform does. This is the rule VS0 already applied to code
+> (*"a gate that has never failed is a gate nobody has tested"*, §20) and failed to apply to
+> repository configuration, at the cost of an accepted direct push to `main` (§32). It now applies to
+> both. **Never record a protection as satisfied because it was configured.**
+
 **The reporting format on a stop:** what was attempted · which document and section caused the stop ·
 what the two conflicting requirements are · what Codex would need in order to proceed. **No proposed
 resolution is implemented.** A stop that arrives with the fix already applied is a violated stop.
@@ -1013,6 +1044,13 @@ conditions are additions, never replacements.
 
 ### VS0-T01 — Repository bootstrap · *Lightweight · Level 0*
 
+> **STATUS: NOT ACCEPTED (A-03).** The four repository files are correct and are **on `main`**, but
+> they arrived by a **direct push that branch protection should have rejected** (§32). The content is
+> authorised; the path was not. Three of the acceptance criteria below — direct push rejected,
+> force-push blocked, deletion blocked — were **reported as satisfied on the strength of a settings
+> dump and are now known to be false**. They are re-proven by **VS0-T01R**, and T01 is accepted only
+> when T01R passes. **T01 is not re-implemented and its history is not rewritten.**
+
 | Field | Content |
 |---|---|
 | **Objective** | Create the **public** repository, Phase-1 branch protection, ignore/attribute files, README and PR template. **No Godot content. No CI workflow. No required status checks.** |
@@ -1021,12 +1059,38 @@ conditions are additions, never replacements.
 | **Allowed paths** | `/.gitignore` `/.gitattributes` `/README.md` `/.github/PULL_REQUEST_TEMPLATE.md` |
 | **Forbidden paths** | `/.github/workflows/**` *(owned by T14)* · everything else |
 | **Implementation requirements** | **Public** repo at `GITHUB_OWNER/GITHUB_REPOSITORY` (ADR-002 §1.1) — **use the supplied values exactly (§4); invent no account, organization or placeholder name** · default branch `main` · `main` protected, no direct pushes by anyone · PR-only merge · **`required_approving_review_count` = 0** · **`enforce_admins` = true** · **force-push to `main` blocked** · **deletion of `main` blocked** · branch naming `feature/<task-id>-<slug>`, `fix/<task-id>-<slug>` · `.gitattributes` declares LFS for `*.png`, `*.ogg`, `*.wav`, `*.aseprite` · `.gitignore` excludes `.godot/`, `export/`, `evidence/`, `*.tmp` and **does not** exclude `*.import` · `README.md` · PR template carrying the task packet's Acceptance Criteria and required evidence · repository visibility and settings evidence captured. **Configure NO required status checks, and create NO workflow file — `/.github/workflows/**` belongs to T14.** |
-| **Tests** | None (no code). Verified by repository settings evidence. |
-| **Acceptance criteria** | Repository is **public** · default branch is `main` · `required_approving_review_count` is **0** · `enforce_admins` is **true** · a direct push to `main` is rejected · `main` cannot be force-pushed or deleted · a change to `main` is possible only through a pull request · `git check-attr` confirms the LFS patterns · README and PR template present · repository visibility and branch-protection settings evidence attached.<br><br>**Required CI status checks are intentionally deferred until T14, when the real VS0 workflows and their stable check names exist.** Their absence at T01 is an approved deferral, **not** a failed acceptance criterion. |
+| **Tests** | None (no code). **File contents** verified by inspection. **Enforcement** is not verified here — see VS0-T01R. A settings dump is not a test. |
+| **Acceptance criteria** | **Satisfied by T01:** repository is **public** · default branch is `main` · `git check-attr` confirms the LFS patterns · `.gitignore` excludes `.godot/`, `export/`, `evidence/`, `*.tmp` and **does not** exclude `*.import` · README present and pointing at `ARCHITECTURE.md` §16 · PR template present with Task / Worktree / Commit(s) / Files created / Files modified / Summary / Acceptance / Verification / Evidence / Impact declarations.<br><br>**Moved to VS0-T01R by A-03** — these are enforcement properties and **a settings dump does not prove them**: a direct push to `main` is rejected · `main` cannot be force-pushed · `main` cannot be deleted · a change to `main` is possible only through a pull request · a PR merges with **0** approving reviews.<br><br>**Required CI status checks are intentionally deferred until T14, when the real VS0 workflows and their stable check names exist.** Their absence at T01 is an approved deferral, **not** a failed acceptance criterion. |
 | **Persistence impact** | None |
 | **Approved deferred hardening** | **Required status checks → T14.** Recorded here as an owner-approved deferral. It is **not technical debt**, it is **not an architecture deviation**, and it must not be reported as either. The hardening is complete when criterion 24 of §20 passes. |
 | **Parallelization** | Blocks everything. Nothing runs beside it. |
 | **Stop condition** | The repository's actual state differs from this packet in any way this packet does not authorize — **report the divergence and stop before changing it**, even if Luisma has described the difference conversationally (§22 condition 13). Both bootstrap inputs are supplied (§4); invent neither. |
+
+---
+
+### VS0-T01R — Repository enforcement remediation · *Full · Level 1*
+
+> **This is not a re-implementation of T01.** The four repository files are already on `main` and are
+> correct. T01R exists **only** to install the corrected enforcement mechanism and to **prove by live
+> negative test** that it works. It creates no gameplay, no engine, no workflow and no architecture.
+
+| Field | Content |
+|---|---|
+| **Objective** | Install the Phase-1 **repository ruleset** (ADR-002 §1.3) and **prove** — by observed rejection, not by configuration — that direct push, force-push and deletion of `main` are refused, and that a PR merges with **0** approving reviews. |
+| **Required reading** | **ADR-002 §1.3** (the incident and the exact ruleset) · §16.2 of this document · **§32** · `CONVENTIONS.md` §5 |
+| **Dependencies** | VS0-T01 content is on `main` (it already is). **Blocks every other VS0 task**: nothing else merges until enforcement is proven. |
+| **Allowed paths** | `/README.md` — **one line only**, recording the enforcement mechanism. Nothing else. |
+| **Forbidden paths** | `/.github/workflows/**` *(T14)* · `/docs/**` *(Claude and Luisma only)* · every other path |
+| **Branch** | `feature/VS0-T01R-enforcement-verification` |
+| **Implementation requirements** | **(a)** A repository ruleset exists exactly as specified in ADR-002 §1.3 — `enforcement: "active"`, target `refs/heads/main`, rules `pull_request` (`required_approving_review_count: 0`), `non_fast_forward`, `deletion`, and **`bypass_actors: []`**. **(b)** A single harmless, authorised line is added to `README.md` recording that `main` is enforced by a repository ruleset and pointing at ADR-002 §1.3 — this is the change that travels through the proof, and it is real content rather than a throwaway. **(c)** The five acceptance tests below are executed **from the owner/admin account**, because that is the account whose push was wrongly accepted. **(d)** Verbatim command output is captured for each. |
+| **Tests** | The five acceptance tests are the deliverable. There is no code to unit-test. |
+| **Acceptance criteria** | **E1 — direct push rejected.** `git push origin HEAD:main` from the verification branch is **refused by the ruleset**; verbatim stderr captured. *This is the test that was never run, and the reason this task exists.*<br>**E2 — PR merges with zero approvals.** The same commit reaches `main` through a pull request with **no approving review**; PR number, merge SHA and `reviewDecision` captured.<br>**E3 — force-push rejected.** `git push --force origin <sha>:main` is refused; stderr captured.<br>**E4 — deletion rejected.** `git push origin --delete main` is refused; stderr captured.<br>**E5 — no bypass.** The ruleset JSON read from the API shows `enforcement: "active"` and **`bypass_actors: []`**; raw JSON captured with the ruleset id.<br><br>**All five must pass. E1 failing to fail is a hard stop.** |
+| **Persistence impact** | None |
+| **Canon impact** | None |
+| **Evidence** | Attached to the PR by hand (CI does not exist until T14): `t01r_e1_direct_push_rejected.txt` · `t01r_e2_pr_merge.txt` · `t01r_e3_force_push_rejected.txt` · `t01r_e4_delete_rejected.txt` · `t01r_e5_ruleset.json`. **Verbatim output. Not a summary, not a screenshot of a settings page.** |
+| **Parallelization** | **Blocks everything.** Nothing runs beside it, and nothing merges until it passes. |
+| **Stop conditions** | Any test that does not produce the expected **rejection** — especially **E1**. · The ruleset cannot be created with an empty `bypass_actors` on the current plan. · Remediation would require reverting `46f76ff`, rewriting history, force-pushing, or deleting a branch — **none is authorized (§32).** · The fix would require adding a bypass actor — **never; report instead.** |
+| **Explicitly forbidden** | Reverting `46f76ffbe2518884c2c5783415bdf446664b637f` · rewriting history · force-pushing anything · re-opening or re-creating PR #1 · re-implementing the four T01 files · adding a bypass actor · configuring required status checks (T14) |
 
 ---
 
@@ -1281,7 +1345,7 @@ conditions are additions, never replacements.
 ## 24. Task dependencies
 
 ```
-T01 Repository
+T01 Repository ──► T01R Enforcement remediation   ◄── nothing merges until this passes
  ├─► T02 Godot baseline ──┐
  └─► T03 Folder skeleton ─┴─► T04 GUT
                                 │
@@ -1318,8 +1382,9 @@ T01 Repository
 | Task | Depends on | Because |
 |---|---|---|
 | T01 | — | Nothing can be reviewed before the repository exists |
-| T02 | T01 | |
-| T03 | T01 | |
+| **T01R** | **T01** | **Enforcement must be proven before anything else merges. T01's protection was configured but never tested, and the untested path was used (§32).** |
+| T02 | T01, **T01R** | |
+| T03 | T01, **T01R** | |
 | T04 | T02, T03 | The GUT pin is verified against the pinned engine, and tests need their folders |
 | T05 | T04 | The lint ships with tests |
 | T06 | T04 | The lint ships with tests |
@@ -1347,6 +1412,7 @@ Each wave is safe to run concurrently, **one writing agent per git worktree**, w
 | Wave | Tasks | Path overlap | Notes |
 |---|---|---|---|
 | A | **T01** | — | Alone |
+| **A′** | **T01R** | `README.md`, one line | **Alone. Blocks every later wave** — no task merges until PR-only enforcement is proven by live rejection |
 | B | **T02**, **T03** | None — T02 owns `project.godot` and `docs/ENGINE.md`; T03 owns folder markers only | Safe |
 | C | **T04** | — | Alone; establishes the test runner |
 | D | **T05**, **T06**, **T07** | None — three disjoint file sets under `tools/` | **The widest parallel wave in VS0** |
@@ -1379,7 +1445,8 @@ throughout — the property that makes every later bisect meaningful.
 
 | # | PR | Gate green at merge |
 |---|---|---|
-| 1 | T01 Repository bootstrap | — (Phase-1 protection evidence; **no required checks yet, by design**) |
+| 1 | T01 Repository bootstrap | — (files only. **Enforcement unproven — see row 1R**) |
+| **1R** | **T01R Enforcement remediation** | **Phase-1 enforcement proven live: E1 direct push rejected · E2 PR merged with 0 approvals · E3 force-push rejected · E4 deletion rejected · E5 `bypass_actors: []`** |
 | 2 | T02 Godot baseline | Project boots headless |
 | 3 | T03 Folder skeleton | Folder contract test |
 | 4 | T04 GUT | Gate 5 live |
@@ -1616,6 +1683,13 @@ which is exactly what PR #1 demonstrated.
 `enforce_admins: true` · force-push blocked · deletion of `main` blocked · required CI checks
 deferred to T14 under A-01.
 
+> **⚠ PARTIALLY SUPERSEDED BY A-03 (§32).** The paragraph above was **true as an intention and false
+> as a fact**: under classic branch protection, setting the approval count to `0` also removed the
+> PR-only requirement, and a direct push to `main` was subsequently accepted. The *requirements*
+> listed still stand; the *mechanism* that was supposed to enforce them did not. Phase-1 enforcement
+> is now a **repository ruleset** (ADR-002 §1.3), proven by VS0-T01R. Read §32 before acting on
+> anything in §31.2.
+
 **Unchanged and still mandatory, operationally:**
 
 > **Codex implements → Claude reviews → owner authorises merge.**
@@ -1654,3 +1728,194 @@ judgement calls.
 
 **C-002 remains ACCEPTED. T01 remains READY**, with corrected visibility and review requirements.
 No other task is affected.
+
+---
+
+## 32. Amendment A-03 — enforcement incident and Phase-1 remediation
+
+    DATE: 2026-09-13
+    ORIGIN: Codex stopped after live verification proved Phase-1 protection did not enforce PR-only
+    TYPE: ENFORCEMENT INCIDENT. Mechanism correction + new remediation task. No architectural,
+          canon, gameplay or persistence change.
+
+### 32.1 What happened
+
+Codex attempted a direct push to the protected branch. **It was accepted.**
+
+```
+git push origin HEAD:main    →  ACCEPTED
+main advanced to                46f76ffbe2518884c2c5783415bdf446664b637f
+PR #1 was automatically marked MERGED (its head became an ancestor of main)
+```
+
+Codex **stopped correctly**: no revert, no force-push, no new PR, no configuration change after
+detection. That is the behaviour §22 requires, and it is the reason this is a recoverable incident
+rather than a compounded one.
+
+At the time of the push — and still, when verified independently for this amendment — classic branch
+protection reported:
+
+| Setting | Value |
+|---|---|
+| `required_pull_request_reviews.required_approving_review_count` | `0` |
+| `enforce_admins` | `true` |
+| `allow_force_pushes` | `false` |
+| `allow_deletions` | `false` |
+| `required_status_checks` | `null` |
+| repository rulesets | `[]` (none) |
+
+**Every setting read back exactly as A-02 specified. The branch was still not protected.**
+
+### 32.2 The exact failed assumption
+
+A-02 wrote, in ADR-002 §1.2 and in §16.2 of this document:
+
+> *"Setting it to 0 removes GitHub's mechanical approval requirement and **nothing else** — PR-only
+> merge, blocked direct pushes, `enforce_admins`, force-push and deletion protection all remain."*
+
+**That sentence is false. It is withdrawn.**
+
+Under classic branch protection the pull-request requirement is **not an independent setting**. It is
+expressed inside the `required_pull_request_reviews` object. With the approval count at `0` and every
+sibling condition off — no code-owner review, no last-push approval, no stale dismissal — and with no
+required status checks, no required signatures and no linear-history rule, **no condition remained
+for a direct push to violate.** A-02 believed it was relaxing one setting among several. It was
+emptying the object that carried the requirement.
+
+`enforce_admins: true` did not compensate. It governs whether admins may *bypass* the configured
+rules; it cannot enforce a rule that evaluates to nothing.
+
+**The deeper failure is procedural, and it is mine.** VS0 already required that *"every control ships
+with a committed negative test proving it fires — a gate that has never failed is a gate nobody has
+tested"* (§20, handoff §8). That principle was applied to the CI gates and **not** to the repository
+configuration that protects everything else. A-02 recorded an enforcement property as satisfied on
+the strength of a settings dump. §22 condition 14 now closes that gap.
+
+### 32.3 The corrected mechanism
+
+**A GitHub repository ruleset is the authoritative Phase-1 PR-only enforcement mechanism** (ADR-002
+§1.3). In rulesets, `pull_request` is a rule in its own right, evaluated independently of the
+approval count — the structural property classic protection lacks.
+
+| Requirement | Rule | Value |
+|---|---|---|
+| Require a pull request before merging | `pull_request` | present |
+| Required approvals | `pull_request.required_approving_review_count` | `0` |
+| No owner/admin bypass | `bypass_actors` | **`[]` — empty, permanently** |
+| Force pushes blocked | `non_fast_forward` | present |
+| Deletion blocked | `deletion` | present |
+| Active, not advisory | `enforcement` | `"active"` |
+| Target | `conditions.ref_name.include` | `refs/heads/main` |
+| Required status checks | — | **none; still deferred to T14 (A-01)** |
+
+Exact JSON: **ADR-002 §1.3.** No bypass actor is authorized for direct pushes to `main` — not the
+owner, not an admin, not an integration, not a deploy key. Adding one requires an ADR revision.
+
+**Classic branch protection may remain** where it does not conflict; GitHub applies the most
+restrictive outcome, so it is harmless defence-in-depth. It is **no longer authoritative**, and it
+must never again be cited as evidence that direct pushes are blocked. If the two disagree, the
+ruleset is the decision.
+
+### 32.4 Repair of `main` — content stays, path was invalid
+
+| Decision | |
+|---|---|
+| Revert `46f76ff`? | **No.** Not authorized. |
+| Rewrite history? | **No.** Not authorized. |
+| Force-push or delete anything? | **No.** Not authorized. |
+
+Verified independently for this amendment: the commit's diff against the previous `main` is **exactly
+the four authorised T01 files** — `.gitattributes`, `.gitignore`, `README.md`,
+`.github/PULL_REQUEST_TEMPLATE.md`, 118 insertions — and it correctly carries both A-02-authorised
+edits (the README authority reference points at `ARCHITECTURE.md` §16; the PR template carries
+Worktree, Commit(s), Files created, Files modified). **No docs, no workflows, no gameplay, no
+architecture entered `main` by that push.**
+
+Recorded, in these exact terms:
+
+1. **The content may remain on `main`.** It is the approved T01 deliverable.
+2. **The direct-push path was invalid.** It is an enforcement incident, not invalid content, and it
+   is not a precedent.
+3. **T01 cannot be accepted until enforcement is corrected and re-proven** by VS0-T01R.
+
+Reverting correct, approved content to punish the path it travelled would destroy working state to
+make a point. The incident is recorded here instead, permanently, which is the stronger control.
+
+### 32.5 PR #1 — disposition
+
+**PR #1 is permanently MERGED and cannot be reopened.** GitHub marked it merged automatically when
+`46f76ff` became an ancestor of `main`; that state is not reversible through the API, and forcing it
+would mean rewriting history.
+
+PR #1 is therefore **closed as a historical record, not as a passed acceptance**. Its review verdict
+stands: content approved, enforcement unproven. **VS0-T01R does not replace it and does not
+re-implement its files.**
+
+### 32.6 VS0-T01R — the remediation task
+
+**`VS0-T01R — Repository enforcement remediation`** (full packet in §23), branch
+`feature/VS0-T01R-enforcement-verification`.
+
+Scope: install the ruleset, make **one** harmless authorised line of change to `README.md`, and prove
+five things by observed rejection. It writes no gameplay, no engine, no workflow, no architecture.
+
+**It blocks every other VS0 task.** Nothing merges until enforcement is proven.
+
+### 32.7 Acceptance tests — the deliverable
+
+Run **from the owner/admin account**, because that is the account whose push was wrongly accepted.
+Evidence is **verbatim command output**, attached to the PR by hand.
+
+| # | Test | Expected | Evidence |
+|---|---|---|---|
+| **E1** | `git push origin HEAD:main` from the verification branch | **REJECTED by the ruleset** | `t01r_e1_direct_push_rejected.txt` |
+| **E2** | Merge the same commit through a PR with **no approving review** | **ACCEPTED**; `reviewDecision` empty | `t01r_e2_pr_merge.txt` |
+| **E3** | `git push --force origin <sha>:main` | **REJECTED** | `t01r_e3_force_push_rejected.txt` |
+| **E4** | `git push origin --delete main` | **REJECTED** | `t01r_e4_delete_rejected.txt` |
+| **E5** | Read the ruleset from the API | `enforcement: "active"`, **`bypass_actors: []`** | `t01r_e5_ruleset.json` |
+
+**E1 is the test that was never run, and its absence is the whole incident.** If E1 does not fail —
+if the push is accepted again — that is a **hard stop**, not a retry: report and wait.
+
+E2 matters as much as E1 in the other direction. Enforcement that also blocks the legitimate path
+produces a second deadlock, which is how this sequence started.
+
+### 32.8 Documents and sections changed
+
+| Document | Sections |
+|---|---|
+| `adr/ADR-002` | Header (**REVISION v3**) · §1 `main` and *Merge* rows · **new §1.3** · Consequences · Risks (+4 rows) |
+| `VS0_FOUNDATION_SPEC.md` | Header (A-03) · §16.2 Phase-1 table + incident note + corrected solo-owner note · §20 criterion 1 · §22 stop condition 14 · packet **T01** (status banner, tests, acceptance) · **new packet VS0-T01R** · §24 graph + dependency table · §25 wave A′ · §26 merge rows 1 and 1R · **§32** (this section) |
+| `CODEX_VS0_HANDOFF.md` | Header (A-03) · §4 wave table · §6 branch rules · §7 stop condition 15 · §8 evidence |
+| `CONVENTIONS.md` | Header (A-03) · §5 (`main`, Merge, Branches incl. **`docs/<amendment-id>-<slug>`**, new *proving a protection* row) |
+| `ARCHITECTURE.md` | §0 ADR index, ADR-002 row |
+
+### 32.9 Bootstrap order — how A-03 itself reaches `main`
+
+A-03 defines the enforcement mechanism that does not exist yet, so its own path to `main` has to be
+stated rather than assumed. **This is a one-time bootstrap, authorised explicitly, and it is not a
+precedent.**
+
+1. **A-03 may be committed and opened as a pull request before the new ruleset exists.** The
+   amendment is the specification of the mechanism; it does not depend on the mechanism being live.
+2. **The ruleset may then be configured** — solely to establish the enforcement mechanism required by
+   A-03 and VS0-T01R. Configuring it is not implementing T01R and does not satisfy T01R: the proofs
+   in §32.7 are still owed.
+3. **A-03 itself must merge only through the newly enforced pull-request path.** It does not merge
+   before the ruleset is active.
+4. **No direct push and no admin bypass is authorized** — not for A-03, not to "bootstrap" the
+   ruleset, not for any reason. `bypass_actors` stays `[]` throughout.
+
+> The order matters, and it is deliberate: **A-03 merging through the ruleset is the first live
+> evidence that the ruleset works.** The amendment that diagnoses the incident becomes the change
+> that demonstrates the fix. If A-03 cannot merge through the enforced path, the mechanism is wrong
+> and must be reported — **not worked around by pushing it directly.** That failure mode is precisely
+> what §32.1 records.
+
+### 32.10 Status
+
+**C-002 remains ACCEPTED.** No canon, gameplay, battle, persistence or layer decision changed.
+
+**VS0-T01: NOT ACCEPTED** — content on `main`, enforcement unproven.
+**VS0-T01R: READY.**
+**Every other task: unchanged, and blocked until T01R passes.**

@@ -3,6 +3,9 @@
     STATUS: ACCEPTED — Luisma, 2026-09-12
     AMENDED: A-01 (2026-09-12) — two-phase branch protection; see spec §30
              A-02 (2026-09-13) — repository PUBLIC; 0 approving GitHub reviews; see spec §31
+             A-03 (2026-09-13) — ENFORCEMENT INCIDENT: `main` is protected by a repository
+             RULESET, not classic branch protection. VS0-T01R added and blocks everything.
+             See spec §32 and ADR-002 §1.3.
     AUTHORITY LEVEL: 4 (operational handoff — subordinate to VS0_FOUNDATION_SPEC.md)
     FOR: Codex (implementation agent)
     SCOPE: VS0 only
@@ -75,7 +78,8 @@ Ten waves. Do not start a wave until the previous one is merged green.
 
 | Wave | Tasks | Delivers |
 |---|---|---|
-| **A** | T01 Repository bootstrap | Repo, **Phase-1** branch protection, LFS, ignore rules, README, PR template. **No workflow file, no required status checks — deferred to T14 by owner decision.** |
+| **A** | T01 Repository bootstrap | Repo, LFS, ignore rules, README, PR template. **No workflow file, no required status checks — deferred to T14 by owner decision.** **Files are on `main`; T01 is NOT accepted — its enforcement was never tested (spec §32).** |
+| **A′** | **T01R Enforcement remediation** | The Phase-1 **ruleset**, and **live proof** that direct push, force-push and deletion of `main` are rejected and that a PR merges with 0 approvals. **Blocks every later wave.** |
 | **B** | T02 Godot baseline · T03 Folder skeleton | 4.7.2 pinned, pixel contract, folder tree |
 | **C** | T04 GUT | Headless test runner, gate 5 |
 | **D** | T05 Convention lint · T06 Layer lint · T07 Validator framework | Gates 1, 2, 3 (partial) |
@@ -116,15 +120,25 @@ Rules, without exception:
 
 | Rule | Value |
 |---|---|
-| Branch naming | `feature/VS0-T0n-<slug>` · `fix/VS0-T0n-<slug>` |
-| `main` | **Protected from T01.** No direct pushes, no force-push, no deletion — by anyone, including you (`enforce_admins: true`). |
-| Merge | Pull request only |
+| Branch naming | `feature/VS0-T0n-<slug>` · `fix/VS0-T0n-<slug>` · `docs/<amendment-id>-<slug>` *(documentation and ADR amendments — Claude and Luisma only)* |
+| **Enforcement mechanism** | **A GitHub repository ruleset** (ADR-002 §1.3), `enforcement: "active"`, **`bypass_actors: []`**. **Classic branch protection is not authoritative and must never be cited as proof that a push is blocked.** |
+| `main` | **Protected.** No direct pushes, no force-push, no deletion — by anyone, including you and including the owner. |
+| Merge | Pull request only — the ruleset's `pull_request` rule |
 | Approving GitHub reviews required | **0** — solo-owner phase (spec §16.2, §31.2). **This removes GitHub's approval count, not the review.** |
 | Required status checks | **Phase 2, added by T14**, once the real workflows exist with stable check names |
 | Worktrees | One per writing agent, always |
 | Scope | PR diff must stay inside the task's `ALLOWED PATHS` |
 | `.github/workflows/` | **T14 owns it exclusively.** No other task creates or edits a workflow. |
 | Red gate | **Blocks merge.** Never "fixed" by weakening or skipping the test. |
+
+> **`git push origin HEAD:main` once succeeded on this repository, and it should not have** (spec
+> §32). The settings all read back correctly and the branch was still unprotected. You stopped
+> correctly and did not compound it — that is why it is recoverable.
+>
+> **Never push to `main`. Not to unblock yourself, not to save a round trip, not because GitHub let
+> you.** "The platform allowed it" is not authorization; the process is the authorization. If a push
+> to `main` is ever accepted again, **stop and report it as an incident** — do not revert it, do not
+> force-push over it, do not reconfigure anything.
 
 **Between T01 and T14 there are no required status checks, and that is deliberate** (spec §16.2,
 §30). Run your task's gates **locally**, through the same headless entry points CI will call. **Do
@@ -169,6 +183,10 @@ every time.
 14. The implementation would differ from currently accepted authority — **including when Luisma
     stated the new intent conversationally.** A conversational decision is an instruction to amend
     the document, not permission to implement the difference. **Decide → amend → implement.**
+15. **A control, gate or protection cannot be shown to fire.** Reading the configuration back is not
+    proof. If the negative test does not fail as expected — the push is accepted, the lint passes
+    broken input, the guard does not trip — **stop.** Do not proceed on the assumption that it works.
+    **Configuration evidence is not enforcement evidence** (spec §22 condition 14, §32).
 
 **Report format:** what you attempted · which document and section caused the stop · the two
 conflicting requirements · what you would need in order to proceed.
@@ -207,6 +225,12 @@ tested. Spec §20 items 10, 14, 18 and 21.
 
 Anything requiring human judgement — how the pixel grid looks — is evidenced by a screenshot and
 **reviewed by Luisma**, never certified by an agent.
+
+**Enforcement and protection properties are evidenced only by observed rejection.** A settings page,
+an API dump or a configuration diff proves what was *requested*, never what the platform *does*. The
+evidence for "direct pushes are blocked" is a push that was **refused**, captured verbatim — nothing
+else counts. This is the same rule as the negative tests above, and it is in this handoff because
+ignoring it for repository configuration cost VS0 an accepted direct push to `main` (spec §32).
 
 **Before T14, gate evidence is produced locally** by the same headless commands CI will run, and
 attached to the PR by hand. From T14 onward CI produces it automatically and branch protection

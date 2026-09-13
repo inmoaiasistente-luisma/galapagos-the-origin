@@ -19,7 +19,7 @@
 | ADR | File | Decides |
 |---|---|---|
 | 001 | [`adr/ADR-001-engine-renderer-pixel-contract.md`](adr/ADR-001-engine-renderer-pixel-contract.md) | Godot version policy, Compatibility renderer, **320×180** pixel contract, size classes, battle staging gate |
-| 002 | [`adr/ADR-002-repository-ci-dependencies.md`](adr/ADR-002-repository-ci-dependencies.md) | GitHub **public** + Actions, dependency policy, GUT, evidence harness, CI gates, dialogue runtime |
+| 002 | [`adr/ADR-002-repository-ci-dependencies.md`](adr/ADR-002-repository-ci-dependencies.md) | GitHub **public** + **ruleset-enforced `main`** + Actions, dependency policy, GUT, evidence harness, CI gates, dialogue runtime |
 | 003 | [`adr/ADR-003-layers-events-autoloads.md`](adr/ADR-003-layers-events-autoloads.md) | Layer direction + lint, C/E/Q model, autoload budget, 15 substates, behaviour tags |
 | 004 | [`adr/ADR-004-data-ids-canon-registry.md`](adr/ADR-004-data-ids-canon-registry.md) | JSON source, IDs, Canon Registry, **type matrix**, evolution graph, localization, **personality** |
 | 005 | [`adr/ADR-005-persistence-save-first.md`](adr/ADR-005-persistence-save-first.md) | Save-first sequencing, runtime/DTO split, atomic write, fixtures, RNG, **reserve 240 + FINALIZAR VÍNCULO** |

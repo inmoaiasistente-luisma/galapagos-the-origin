@@ -3,6 +3,9 @@
     STATUS: ACCEPTED — Luisma, 2026-09-12
     AMENDED: A-02 (2026-09-13) — §5 repository is PUBLIC; 0 approving GitHub reviews.
              See VS0_FOUNDATION_SPEC.md §31 and ADR-002 §1.1–§1.2.
+             A-03 (2026-09-13) — §5 `main` is enforced by a repository RULESET, not by
+             classic branch protection; `docs/` branch prefix added.
+             See VS0_FOUNDATION_SPEC.md §32 and ADR-002 §1.3.
     AUTHORITY LEVEL: 5
     DATE: 2026-09-12
     APPLIES TO: all production GDScript, data, documentation and repository workflow
@@ -169,10 +172,11 @@ locales.
 
 | Item | Convention |
 |---|---|
-| Branches | `feature/<task-id>-<slug>` · `fix/<task-id>-<slug>` |
+| Branches | `feature/<task-id>-<slug>` · `fix/<task-id>-<slug>` · **`docs/<amendment-id>-<slug>`** for documentation and ADR amendments that have no task ID (e.g. `docs/A-02-public-repo-solo-review`) |
 | Repository | **Public** — `inmoaiasistente-luisma/galapagos-the-origin` (ADR-002 §1.1). Everything committed is published. |
-| `main` | Protected. No direct pushes by anyone, including agents (`enforce_admins: true`). |
-| Merge | **Pull request only.** GitHub requires **0** approving reviews during the solo-owner phase (ADR-002 §1.2) — **review itself is still mandatory**: *Codex implements → Claude reviews → owner authorises merge.* |
+| `main` | **Protected by a repository ruleset** (ADR-002 §1.3), `bypass_actors: []`. No direct pushes by anyone — owner, admin or agent. **Classic branch protection is not authoritative for this and never proved it.** |
+| Merge | **Pull request only**, enforced by the ruleset. GitHub requires **0** approving reviews during the solo-owner phase (ADR-002 §1.2) — **review itself is still mandatory**: *Codex implements → Claude reviews → owner authorises merge.* |
+| Proving a protection works | **Never by reading the configuration back.** A protection counts as enforced only when a **live attempt was observed to be rejected** (ADR-002 §1.3). |
 | Parallel agents | One writing agent per **git worktree**; write scope = the task's `ALLOWED PATHS` |
 | Commits | Imperative subject, ≤72 chars, prefixed with the task ID: `X-001: add save envelope` |
 | Commit trailers | **No `Co-Authored-By` trailer** unless project settings enable attribution |

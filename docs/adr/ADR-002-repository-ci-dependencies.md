@@ -6,6 +6,9 @@
     OWNER DECISIONS APPLIED: 1 (Repository/CI), 6 (Testing), 10 (Scope), 19 (Dialogue)
     REVISION: v2 (2026-09-13) — repository visibility PUBLIC; solo-owner review model.
               Supersedes the original private-repository requirement. See §1.1.
+    REVISION: v3 (2026-09-13) — Phase-1 PR-only enforcement moved from classic branch
+              protection to a GitHub repository RULESET, after live verification proved
+              classic protection did not enforce it. See §1.3. ENFORCEMENT INCIDENT.
 
 ## Context
 
@@ -21,8 +24,8 @@ framework and a validator framework, while Codex is forbidden from choosing depe
 |---|---|
 | Host | **GitHub, PUBLIC repository** — `inmoaiasistente-luisma/galapagos-the-origin` (owner decision, 2026-09-13; see §1.1) |
 | CI | **GitHub Actions**, `windows-latest` runner |
-| `main` | **Protected.** No direct pushes, by anyone, including agents. |
-| Merge | **Pull request only.** Review is **operationally mandatory** (§1.2); GitHub's approving-review count is **0** during the solo-owner phase. |
+| `main` | **Protected by a repository ruleset** (§1.3). No direct pushes, by anyone, including the owner and admins. |
+| Merge | **Pull request only, enforced by the ruleset in §1.3.** Review is **operationally mandatory** (§1.2); GitHub's approving-review count is **0** during the solo-owner phase. |
 | Branches | `feature/<task-id>-<slug>`, `fix/<task-id>-<slug>` |
 | Parallel agents | **Git worktrees**, one per writing agent |
 | Large binaries | **Git LFS APPROVED** (Final §7) for `*.png`, `*.ogg`, `*.wav`, `*.aseprite`. Other binary patterns only when justified. |
@@ -74,6 +77,123 @@ unchanged and remains mandatory:
 Merging a pull request that Claude has not reviewed is a process violation, not a shortcut. When a
 second eligible account exists, raising the approval count back to 1 is a settings change plus an
 ADR revision.
+
+### 1.3 Phase-1 enforcement mechanism — repository ruleset (owner decision, 2026-09-13)
+
+> **This section exists because the previous mechanism was tested and failed.** It is recorded as an
+> **enforcement incident**, not as a preference change.
+
+#### What happened
+
+With `required_approving_review_count` set to `0` under **classic branch protection** — the
+configuration A-02 approved — a direct push to the protected branch was **accepted**:
+
+```
+git push origin HEAD:main        →  ACCEPTED
+main advanced to                     46f76ffbe2518884c2c5783415bdf446664b637f
+```
+
+At the moment of that push the protection API reported, and still reports:
+
+```
+required_pull_request_reviews.required_approving_review_count : 0
+enforce_admins                                                : true
+allow_force_pushes                                            : false
+allow_deletions                                               : false
+required_status_checks                                        : null
+```
+
+**Every setting read back exactly as specified, and the branch was not protected from a direct
+push.** Codex detected this and stopped without reverting, force-pushing or reconfiguring anything.
+
+#### The falsified assumption
+
+ADR-002 §1.2 and VS0 spec §16.2 asserted, in A-02:
+
+> *"Setting it to 0 removes GitHub's mechanical approval requirement and **nothing else** — PR-only
+> merge, blocked direct pushes, `enforce_admins`, force-push and deletion protection all remain."*
+
+**That sentence is false and is withdrawn.** Under classic branch protection the pull-request
+requirement is not an independent setting: it is expressed *inside* the
+`required_pull_request_reviews` object. With the approval count at `0` and every other sub-condition
+off (`require_code_owner_reviews`, `require_last_push_approval`, `dismiss_stale_reviews` all
+`false`), and with no required status checks, no required signatures and no linear-history rule,
+**no condition remained for a direct push to violate.** A-02 did not weaken one setting beside the
+others — it emptied the object that carried the PR requirement.
+
+`enforce_admins: true` did not save it. That flag governs whether admins may *bypass* the configured
+rules; it cannot enforce a rule that evaluates to nothing.
+
+#### The corrected mechanism
+
+**A GitHub repository ruleset is now the authoritative Phase-1 PR-only enforcement mechanism.** In
+rulesets, `pull_request` is a **rule in its own right**, evaluated independently of how many
+approvals it requires — which is precisely the structural property classic protection lacks.
+
+| Requirement | Rule |
+|---|---|
+| Require a pull request before merging | `pull_request` rule present |
+| Required approvals | `required_approving_review_count: 0` |
+| No owner/admin bypass | **`bypass_actors: []` — empty, and it stays empty** |
+| Force pushes blocked | `non_fast_forward` rule |
+| Deletion blocked | `deletion` rule |
+| Required status checks | **None — still deferred to T14** (Amendment A-01) |
+
+Authoritative configuration:
+
+```json
+{
+  "name": "main-phase1",
+  "target": "branch",
+  "enforcement": "active",
+  "bypass_actors": [],
+  "conditions": {
+    "ref_name": { "include": ["refs/heads/main"], "exclude": [] }
+  },
+  "rules": [
+    {
+      "type": "pull_request",
+      "parameters": {
+        "required_approving_review_count": 0,
+        "dismiss_stale_reviews_on_push": false,
+        "require_code_owner_review": false,
+        "require_last_push_approval": false,
+        "required_review_thread_resolution": false
+      }
+    },
+    { "type": "non_fast_forward" },
+    { "type": "deletion" }
+  ]
+}
+```
+
+**`bypass_actors` must remain empty.** No bypass actor is authorized for direct pushes to `main` —
+not the owner, not an admin, not an integration, not a deploy key. Adding one re-creates the hole
+this section exists to close, and requires a revision of this ADR.
+
+*(Rulesets are available on GitHub Free for **public** repositories. The visibility decision in §1.1
+is therefore what makes this mechanism available on the current plan — the two decisions are
+connected, and reverting §1.1 would also remove §1.3.)*
+
+#### Classic branch protection — retained, subordinate
+
+Classic protection on `main` **may remain** while it does not conflict with the ruleset. GitHub
+evaluates both and applies the most restrictive outcome, so leaving it in place is harmless
+defence-in-depth. It is **no longer authoritative for PR-only enforcement** and must never again be
+cited as evidence that direct pushes are blocked. If the two ever disagree, the ruleset is the
+decision and classic protection is corrected to match.
+
+#### The rule this incident establishes
+
+> **Configuration evidence is not enforcement evidence.** A settings screenshot or an API dump proves
+> what was *requested*, not what the platform *does*. An enforcement property may only be recorded as
+> satisfied when a **live negative test** has been observed to fail — a push that was actually
+> rejected.
+
+This principle was already in force for code (*"every control ships with a committed negative test
+proving it fires; a gate that has never failed is a gate nobody has tested"* — VS0 spec §20).
+**It was not applied to repository configuration, and that omission is what A-02 got wrong.** It now
+applies to both, and T14's Phase-2 proof cases are the same rule applied to required status checks.
 
 **Worktree protocol.** One writing agent per worktree, always. A task packet's `ALLOWED PATHS` is
 the write scope; CI verifies the PR diff touches nothing outside it. Read-only research agents may
@@ -194,6 +314,7 @@ Per owner decision 19: **custom, minimal, data-driven runtime. No dialogue plugi
 ## Consequences
 
 - A GitHub account and a **public** repository become project infrastructure; everything committed is published (§1.1).
+- **A repository ruleset becomes project infrastructure** (§1.3), and its configuration is normative: `enforcement: active`, `bypass_actors: []`. It is verified by live negative test, not by reading it back.
 - Codex gains an objective gate it cannot self-certify — the point of the arrangement.
 - Vendoring makes dependency updates deliberate, reviewed events.
 - The custom dialogue runtime is a real cost carried in VS6, accepted for canon safety.
@@ -212,6 +333,9 @@ Per owner decision 19: **custom, minimal, data-driven runtime. No dialogue plugi
 | A secret or credential is committed to a **public** repository | **High** | Nothing in Volume I requires a secret (no network, no telemetry, no analytics). `.gitignore` excludes `.env*`. A leak is unrecoverable by deletion, so the control is never creating one. |
 | Canon is world-readable before release | Accepted | Deliberate owner decision (§1.1). The trade was protection over concealment. |
 | Review is skipped because GitHub no longer enforces an approval | **Medium** | §1.2 makes Claude's review mandatory as process; the sequence is recorded in the ADR rather than in anyone's memory |
+| A protection setting reads back correctly but does not enforce | **Realised — see §1.3** | Enforcement is proven by live negative test, never by reading configuration back. VS0-T01R proves rejection; T14 proves it again for required checks |
+| A bypass actor is added to the ruleset "just to unblock something" | **High** | `bypass_actors: []` is a normative value in §1.3, not a default. Changing it requires an ADR revision |
+| The ruleset is deleted or set to `evaluate`/`disabled` | **High** | `enforcement: "active"` is normative. VS0-T01R's evidence records the ruleset id and state; T14 re-verifies it |
 
 ## Migration / compatibility impact
 
