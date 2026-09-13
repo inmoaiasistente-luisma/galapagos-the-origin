@@ -174,7 +174,7 @@ locales.
 |---|---|
 | Branches | `feature/<task-id>-<slug>` · `fix/<task-id>-<slug>` · **`docs/<amendment-id>-<slug>`** for documentation and ADR amendments that have no task ID (e.g. `docs/A-02-public-repo-solo-review`) |
 | Repository | **Public** — `inmoaiasistente-luisma/galapagos-the-origin` (ADR-002 §1.1). Everything committed is published. |
-| `main` | **Protected by a repository ruleset** (ADR-002 §1.3), `bypass_actors: []`. No direct pushes by anyone — owner, admin or agent. **Classic branch protection is not authoritative for this and never proved it.** |
+| `main` | **Protected by a repository ruleset** (ADR-002 §1.3), `bypass_actors: []`. **No direct pushes by anyone — owner, admin or agent.** This is a **project rule**: the ruleset guarantees *association with a pull request*, and GitHub will accept a direct push of a commit that already heads an open PR (ADR-002 §1.4). **Process forbids it anyway.** The only authorized path to `main` is GitHub's merge operation on a PR. |
 | Merge | **Pull request only**, enforced by the ruleset. GitHub requires **0** approving reviews during the solo-owner phase (ADR-002 §1.2) — **review itself is still mandatory**: *Codex implements → Claude reviews → owner authorises merge.* |
 | Proving a protection works | **Never by reading the configuration back.** A protection counts as enforced only when a **live attempt was observed to be rejected** (ADR-002 §1.3). |
 | Parallel agents | One writing agent per **git worktree**; write scope = the task's `ALLOWED PATHS` |

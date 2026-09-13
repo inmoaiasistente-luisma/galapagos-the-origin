@@ -9,6 +9,9 @@
     REVISION: v3 (2026-09-13) — Phase-1 PR-only enforcement moved from classic branch
               protection to a GitHub repository RULESET, after live verification proved
               classic protection did not enforce it. See §1.3. ENFORCEMENT INCIDENT.
+    REVISION: v4 (2026-09-13) — PR-enforcement semantics corrected. The ruleset mechanism
+              stands; the guarantee it provides is ASSOCIATION with a pull request, not
+              rejection of every direct push. See §1.4. Restrict updates NOT authorized.
 
 ## Context
 
@@ -195,6 +198,82 @@ proving it fires; a gate that has never failed is a gate nobody has tested"* —
 **It was not applied to repository configuration, and that omission is what A-02 got wrong.** It now
 applies to both, and T14's Phase-2 proof cases are the same rule applied to required status checks.
 
+**A-04 adds the other half of the rule.** A negative test is only evidence when it is **specified
+against the property the control actually promises**. A-03's E1 tested a property the `pull_request`
+rule never claimed, so its outcome was uninterpretable either way — a test that cannot fail for the
+stated reason is no better than the settings dump it replaced. **Write the test against the
+documented guarantee, not against the guarantee you assumed.** (§1.4.)
+
+### 1.4 What the `pull_request` rule actually guarantees (owner decision, 2026-09-13)
+
+> **The A-03 mechanism stands. The A-03 acceptance test did not.** §1.3 chose the right control and
+> specified the wrong proof.
+
+#### The corrected semantics
+
+GitHub's *"Require a pull request before merging"* rule requires that changes introduced into the
+protected branch be **associated with an open pull request** targeting that branch. It does **not**
+guarantee rejection of every direct `git push`. **A commit that is already the head of an open pull
+request targeting `main` may be pushed directly and accepted** — GitHub considers the change
+associated with a pull request, so the rule is satisfied.
+
+This is documented platform behaviour, **not a bypass and not a defect in the ruleset.**
+
+#### The withdrawn test
+
+A-03 required, as acceptance test E1:
+
+> *"`git push origin HEAD:main` from the verification branch is refused by the ruleset."*
+
+**That test is invalid and is withdrawn.** The commit it pushes is by construction the head of the
+open verification PR, so the rule treats it as associated and accepts it. The test could not fail for
+the reason A-03 believed, and passing or failing it proved nothing about enforcement.
+
+It is replaced by **E1A** (a genuinely unassociated commit, which must be rejected) and **E1B** (the
+associated-commit behaviour, recorded rather than tested). Full definitions: VS0 spec §32.7.
+
+#### The guarantee, stated precisely
+
+This is what the repository does and does not promise. Nothing here may be paraphrased upward into a
+stronger claim.
+
+| | |
+|---|---|
+| Every change reaching `main` is **associated with a pull request** | **Guaranteed** — `pull_request` rule |
+| Force pushes to `main` | **Blocked** — `non_fast_forward` |
+| Deletion of `main` | **Blocked** — `deletion` |
+| Approving GitHub reviews required | **0**, during solo-owner mode |
+| A commit with **no** open PR can reach `main` | **No** — rejected (E1A proves it) |
+| A commit that **is** an open PR's head can be pushed directly | **Yes, GitHub accepts it** — and **project process forbids it** |
+
+> **"All direct pushes to `main` are technically impossible" is not achievable** on the current
+> solo-owner / GitHub Free configuration without the **Restrict updates** rule.
+
+#### Restrict updates — NOT authorized
+
+**Do not add the `update` ("Restrict updates") rule to this ruleset.** It would block legitimate
+pull-request merges, re-creating the deadlock that A-02 and A-03 already cost this project twice. The
+residual gap — a PR-head commit pushed manually — is closed by **process, not by configuration**:
+
+> **Never push to `main`. Not even a commit that GitHub would accept because it heads an open PR.**
+> "The platform allowed it" has never been authorization on this project.
+
+The gap is narrow by construction: the commit must already be reviewable in an open PR, so the
+content has been through the same path a merge would use. What is lost is the merge record, not the
+review.
+
+#### Live configuration, read back 2026-09-13
+
+Ruleset `main-phase1`, id `23190427` — `enforcement: "active"`, `bypass_actors: []`, target
+`refs/heads/main`, rules `pull_request` / `non_fast_forward` / `deletion`. **Matches §1.3.**
+
+GitHub populated two `pull_request` parameters that §1.3 did not specify:
+
+| Parameter | Value | Disposition |
+|---|---|---|
+| `allowed_merge_methods` | `["merge", "squash", "rebase"]` | **Accepted.** No merge method is restricted in VS0. |
+| `require_extra_approval_for_unattributed_changes` | `true` | **Accepted, and watched.** A commit whose author is not attributable to a GitHub account can demand an approval that a solo owner cannot give. If E2 is ever blocked by an unattributed-changes approval, **that is a stop, and this parameter is the first suspect.** |
+
 **Worktree protocol.** One writing agent per worktree, always. A task packet's `ALLOWED PATHS` is
 the write scope; CI verifies the PR diff touches nothing outside it. Read-only research agents may
 run concurrently and report to the owning agent. Only the integration owner edits shared manifests,
@@ -336,6 +415,9 @@ Per owner decision 19: **custom, minimal, data-driven runtime. No dialogue plugi
 | A protection setting reads back correctly but does not enforce | **Realised — see §1.3** | Enforcement is proven by live negative test, never by reading configuration back. VS0-T01R proves rejection; T14 proves it again for required checks |
 | A bypass actor is added to the ruleset "just to unblock something" | **High** | `bypass_actors: []` is a normative value in §1.3, not a default. Changing it requires an ADR revision |
 | The ruleset is deleted or set to `evaluate`/`disabled` | **High** | `enforcement: "active"` is normative. VS0-T01R's evidence records the ruleset id and state; T14 re-verifies it |
+| A PR-head commit is pushed manually to `main` because GitHub accepts it | **Medium** | Closed by process, not configuration (§1.4). Recorded as an invalid project path even though it is not a GitHub bypass. **Restrict updates is not the answer** — it would block legitimate merges |
+| **Restrict updates** is added to "close the last gap" | **High** | Explicitly forbidden in §1.4. It blocks legitimate PR merges and re-creates the deadlock that already cost this project twice |
+| `require_extra_approval_for_unattributed_changes` demands an approval a solo owner cannot give | **Medium** | Recorded in §1.4 as the first suspect if a PR merge is ever blocked by an approval requirement. A blocked legitimate merge is a stop, not a workaround |
 
 ## Migration / compatibility impact
 
