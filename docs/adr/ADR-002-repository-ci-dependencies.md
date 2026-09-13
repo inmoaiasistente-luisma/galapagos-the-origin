@@ -4,6 +4,8 @@
     AUTHORITY LEVEL: 5
     DATE: 2026-09-12
     OWNER DECISIONS APPLIED: 1 (Repository/CI), 6 (Testing), 10 (Scope), 19 (Dialogue)
+    REVISION: v2 (2026-09-13) — repository visibility PUBLIC; solo-owner review model.
+              Supersedes the original private-repository requirement. See §1.1.
 
 ## Context
 
@@ -17,15 +19,61 @@ framework and a validator framework, while Codex is forbidden from choosing depe
 
 | Item | Decision |
 |---|---|
-| Host | **GitHub, private repository** |
+| Host | **GitHub, PUBLIC repository** — `inmoaiasistente-luisma/galapagos-the-origin` (owner decision, 2026-09-13; see §1.1) |
 | CI | **GitHub Actions**, `windows-latest` runner |
 | `main` | **Protected.** No direct pushes, by anyone, including agents. |
-| Merge | **Pull request only**, with review |
+| Merge | **Pull request only.** Review is **operationally mandatory** (§1.2); GitHub's approving-review count is **0** during the solo-owner phase. |
 | Branches | `feature/<task-id>-<slug>`, `fix/<task-id>-<slug>` |
 | Parallel agents | **Git worktrees**, one per writing agent |
 | Large binaries | **Git LFS APPROVED** (Final §7) for `*.png`, `*.ogg`, `*.wav`, `*.aseprite`. Other binary patterns only when justified. |
 | Ignored | `.godot/`, `export/`, `*.tmp`, local editor state |
 | Committed | **`*.import` files** — omitting them breaks reproducible imports |
+
+### 1.1 Repository visibility — PUBLIC (owner decision, 2026-09-13)
+
+> **Superseded history:** this ADR originally required a **private** repository. That requirement no
+> longer applies anywhere in active authority.
+
+**Reason for the change:** the current GitHub plan does not provide the required branch-protection
+features on private repositories, while a public repository supports the accepted protection model
+in full. Protection was judged more valuable than concealment, and the decision was made
+deliberately rather than discovered.
+
+**Consequences accepted with the decision:**
+
+- The repository's contents — including the accepted canon under `docs/canon/` — are world-readable
+  from now on. Treat every commit as published.
+- **Never commit a secret, credential or token.** On a public repository a leaked secret is
+  compromised the moment it is pushed, and deleting it later does not un-publish it.
+- GitHub Actions minutes are not billed on public repositories. **Git LFS quota is billed per
+  account regardless of visibility**, so visibility saves nothing there.
+- Reverting to private later is an owner decision requiring an ADR revision, and would not retract
+  anything already published.
+
+### 1.2 Review model during the solo-owner phase
+
+The repository currently has **one eligible GitHub account**, and GitHub does not permit a pull
+request's author to satisfy their own approval requirement. A non-zero required-approval count
+therefore makes **every** pull request permanently unmergeable.
+
+| | Value |
+|---|---|
+| `required_approving_review_count` | **0** |
+| Pull request required for any change to `main` | **Yes** |
+| Direct pushes to `main` | **Blocked** |
+| `enforce_admins` | **true** |
+| Force-push to `main` | **Blocked** |
+| Deletion of `main` | **Blocked** |
+| Required status checks | Deferred to T14 (Amendment A-01) |
+
+**Review has not been removed; only GitHub's mechanical approval count has.** The review sequence is
+unchanged and remains mandatory:
+
+> **Codex implements → Claude reviews → owner authorises merge.**
+
+Merging a pull request that Claude has not reviewed is a process violation, not a shortcut. When a
+second eligible account exists, raising the approval count back to 1 is a settings change plus an
+ADR revision.
 
 **Worktree protocol.** One writing agent per worktree, always. A task packet's `ALLOWED PATHS` is
 the write scope; CI verifies the PR diff touches nothing outside it. Read-only research agents may
@@ -145,7 +193,7 @@ Per owner decision 19: **custom, minimal, data-driven runtime. No dialogue plugi
 
 ## Consequences
 
-- A GitHub account and private repository become project infrastructure.
+- A GitHub account and a **public** repository become project infrastructure; everything committed is published (§1.1).
 - Codex gains an objective gate it cannot self-certify — the point of the arrangement.
 - Vendoring makes dependency updates deliberate, reviewed events.
 - The custom dialogue runtime is a real cost carried in VS6, accepted for canon safety.
@@ -161,6 +209,9 @@ Per owner decision 19: **custom, minimal, data-driven runtime. No dialogue plugi
 | Worktree discipline breaks and two agents write the same file | High | One writer per worktree; `ALLOWED PATHS` diff check in CI |
 | LFS quota or clone size becomes painful as art lands | Low | Reviewed at VS10; asset budget tracked via the completeness report |
 | GitHub outage blocks work | Low | Offline-first: local clone is fully buildable and testable without the network |
+| A secret or credential is committed to a **public** repository | **High** | Nothing in Volume I requires a secret (no network, no telemetry, no analytics). `.gitignore` excludes `.env*`. A leak is unrecoverable by deletion, so the control is never creating one. |
+| Canon is world-readable before release | Accepted | Deliberate owner decision (§1.1). The trade was protection over concealment. |
+| Review is skipped because GitHub no longer enforces an approval | **Medium** | §1.2 makes Claude's review mandatory as process; the sequence is recorded in the ADR rather than in anyone's memory |
 
 ## Migration / compatibility impact
 
