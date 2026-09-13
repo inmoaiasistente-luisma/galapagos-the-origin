@@ -1,0 +1,21 @@
+# Godot-generated state
+.godot/
+
+# Local builds and evidence artifacts
+export/
+evidence/
+*.tmp
+
+# Local worktrees and editor state
+.worktrees/
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Local secrets
+.env
+.env.*
+!.env.example
+
+# Godot *.import files are intentionally committed.
