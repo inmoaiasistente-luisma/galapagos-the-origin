@@ -24,6 +24,7 @@ in `data/source/*.json`; generated resources are rebuildable outputs and are nev
 
 - Create branches as `feature/<task-id>-<slug>` or `fix/<task-id>-<slug>`.
 - Never push directly to `main`; every change reaches it through a reviewed pull request.
+- The `main` branch is enforced by the `main-phase1` repository ruleset; see [ADR-002 §1.3](docs/adr/ADR-002-repository-ci-dependencies.md#13-phase-1-enforcement-mechanism--repository-ruleset-owner-decision-2026-09-13).
 - Keep each task within its packet's `ALLOWED PATHS` and use one worktree per writing agent.
 - Complete the pull request template with executed verification and impact declarations.
 
