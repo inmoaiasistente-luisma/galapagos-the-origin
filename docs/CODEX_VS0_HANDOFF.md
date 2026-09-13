@@ -2,6 +2,7 @@
 
     STATUS: ACCEPTED — Luisma, 2026-09-12
     AMENDED: A-01 (2026-09-12) — two-phase branch protection; see spec §30
+             A-02 (2026-09-13) — repository PUBLIC; 0 approving GitHub reviews; see spec §31
     AUTHORITY LEVEL: 4 (operational handoff — subordinate to VS0_FOUNDATION_SPEC.md)
     FOR: Codex (implementation agent)
     SCOPE: VS0 only
@@ -56,13 +57,15 @@ repository and is never downloaded by CI.** (ADR-002 §2.)
 
 ## 3. Bootstrap inputs you do not have yet
 
-| Parameter | Status |
+| Parameter | Value |
 |---|---|
-| `GITHUB_OWNER` | **Supplied by Luisma.** Not yet known. |
-| `GITHUB_REPOSITORY` | **Supplied by Luisma.** Not yet known. |
+| `GITHUB_OWNER` | `inmoaiasistente-luisma` |
+| `GITHUB_REPOSITORY` | `galapagos-the-origin` |
+| Visibility | **PUBLIC** (ADR-002 §1.1) |
 
-Produce every part of T01 that does not need them. **Stop at the step that does.** Do not invent an
-account name, an organization, or a placeholder that looks real.
+Both values are now supplied. The repository is **public by deliberate owner decision** — the GitHub
+plan does not provide the required branch protection on private repositories. **Everything you commit
+is published.** Never commit a secret, credential or token.
 
 ---
 
@@ -114,8 +117,9 @@ Rules, without exception:
 | Rule | Value |
 |---|---|
 | Branch naming | `feature/VS0-T0n-<slug>` · `fix/VS0-T0n-<slug>` |
-| `main` | **Protected from T01.** No direct pushes, no force-push, no deletion — by anyone, including you. |
-| Merge | Pull request only, with review |
+| `main` | **Protected from T01.** No direct pushes, no force-push, no deletion — by anyone, including you (`enforce_admins: true`). |
+| Merge | Pull request only |
+| Approving GitHub reviews required | **0** — solo-owner phase (spec §16.2, §31.2). **This removes GitHub's approval count, not the review.** |
 | Required status checks | **Phase 2, added by T14**, once the real workflows exist with stable check names |
 | Worktrees | One per writing agent, always |
 | Scope | PR diff must stay inside the task's `ALLOWED PATHS` |
@@ -128,8 +132,20 @@ not create a temporary, bootstrap or placeholder check to fill the gap — none 
 deferral is an approved hardening item: do not report it as technical debt or as an architecture
 deviation.
 
+**Review is still mandatory, and GitHub no longer enforces it for you.** The sequence is:
+
+> **Codex implements → Claude reviews → owner authorises merge.**
+
+Never merge your own pull request, and never treat "GitHub allows it" as "the process permits it".
+
 If the implementation violates the spec, fix the implementation. If the spec changed, the authority
 document is updated **first** — and that is Claude's and Luisma's job, not yours.
+
+**This applies to owner decisions too.** If Luisma tells you something in conversation that differs
+from an accepted document — a different visibility, a different value, a different rule — that is an
+instruction to **amend the document**, not permission to implement the difference. Report the
+divergence, stop, and wait for the amended authority. **Decide → amend → implement**, in that order,
+every time.
 
 ---
 
@@ -150,7 +166,9 @@ document is updated **first** — and that is Claude's and Luisma's job, not you
 11. A test fails and the only available fix is to weaken or skip it.
 12. The task cannot be completed within its `ALLOWED PATHS`.
 13. The work would exceed VS0 scope (spec §2, §3).
-14. `GITHUB_OWNER` / `GITHUB_REPOSITORY` are needed and unknown.
+14. The implementation would differ from currently accepted authority — **including when Luisma
+    stated the new intent conversationally.** A conversational decision is an instruction to amend
+    the document, not permission to implement the difference. **Decide → amend → implement.**
 
 **Report format:** what you attempted · which document and section caused the stop · the two
 conflicting requirements · what you would need in order to proceed.

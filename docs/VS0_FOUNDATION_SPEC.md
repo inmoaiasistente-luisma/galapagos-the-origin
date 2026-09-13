@@ -7,6 +7,8 @@
     ENGINE PIN: Godot 4.7.2-stable · standard GDScript build · Compatibility renderer
     AMENDMENTS: A-01 (2026-09-12) — required CI status checks moved from T01 to T14;
                 T14 ← T15 dependency reviewed and confirmed intentional. See §30.
+                A-02 (2026-09-13) — repository visibility PUBLIC; solo-owner review model
+                (0 approving GitHub reviews). See §31.
     DERIVES FROM: Master Canon v1.1 (ACCEPTED) · ADR-001 … ADR-008 (ACCEPTED) ·
                   ARCHITECTURE.md · CONVENTIONS.md · STATE_OWNERSHIP.md ·
                   CANON_CONFLICT_RESOLUTION.md (all ACCEPTED)
@@ -50,7 +52,7 @@ VS0 delivers exactly the following, and nothing else.
 
 | # | Deliverable | Why it must exist before VS1 |
 |---|---|---|
-| 1 | GitHub private repository, protected `main`, PR-only merge, worktree protocol | VS1 is the first milestone where an agent writes code that can be wrong. The review gate must exist before the code does. |
+| 1 | GitHub **public** repository, protected `main`, PR-only merge, worktree protocol | VS1 is the first milestone where an agent writes code that can be wrong. The review gate must exist before the code does. |
 | 2 | Godot project that boots, exact engine version pinned, export templates matched | Every later task presumes a known engine. An unpinned engine makes every bug irreproducible. |
 | 3 | Compatibility renderer configured and feature-verified | VS1 authors lighting and world presentation. Discovering a missing 2D feature after maps exist is expensive. |
 | 4 | 320 × 180 pixel contract configured | VS1 authors the first tiles and sprites. Changing base resolution after art exists is re-authoring, not a setting. |
@@ -135,14 +137,17 @@ packet. **All are ACCEPTED authority.**
 | Engine | **Godot 4.7.2-stable**, standard GDScript build, no .NET | **FIXED** (owner decision) |
 | Export templates | **Godot 4.7.2**, matching exactly | **FIXED** (owner decision) |
 | Renderer | **Compatibility** | **FIXED** (ADR-001 §2) |
-| `GITHUB_OWNER` | *(not yet known)* | **Supplied at bootstrap by Luisma** |
-| `GITHUB_REPOSITORY` | *(not yet known)* | **Supplied at bootstrap by Luisma** |
+| `GITHUB_OWNER` | `inmoaiasistente-luisma` | **SUPPLIED** (owner, 2026-09-13) |
+| `GITHUB_REPOSITORY` | `galapagos-the-origin` | **SUPPLIED** (owner, 2026-09-13) |
+| Repository visibility | **PUBLIC** | **FIXED** (owner decision, 2026-09-13 — ADR-002 §1.1, §31.1) |
 
 `GITHUB_OWNER` and `GITHUB_REPOSITORY` are **named bootstrap parameters**, referenced by those names
-everywhere in this specification and in the workflow. **Codex must not invent an account name, an
-organization or a repository name, and must not substitute a placeholder that looks real.** Codex
-configures the actual GitHub destination only once the real values are supplied; until then T01
-produces every file that does not require them, and stops at the step that does.
+everywhere in this specification and in the workflow. Both values are now supplied; **Codex still
+invents neither**, and uses these exact values rather than inferring a destination.
+
+**The repository is public by deliberate owner decision** (§31.1): the current GitHub plan does not
+provide the required branch protection on private repositories, and protection was chosen over
+concealment. Everything committed is published — **never commit a secret, credential or token.**
 
 ---
 
@@ -729,13 +734,26 @@ workflows that do not yet exist.
 
 | Rule | Value |
 |---|---|
+| Visibility | **PUBLIC** (ADR-002 §1.1). Everything committed is published. |
 | `main` | **Protected.** No direct pushes, by anyone, including agents. |
-| Merge | Pull request only, with review |
+| Merge | Pull request only |
+| `required_approving_review_count` | **0** — see the solo-owner note below |
+| `enforce_admins` | **true** |
 | Force-push to `main` | **Blocked** |
 | Deletion of `main` | **Blocked** |
 | Branches | `feature/<task-id>-<slug>`, `fix/<task-id>-<slug>` |
 | Parallel agents | **One writing agent per git worktree, always** |
 | Required status checks | **Deliberately not configured.** No VS0 workflow exists yet, so there is no stable check name to require. |
+
+> **Why zero approvals, and what it does not mean (ADR-002 §1.2).** The repository has one eligible
+> GitHub account, and GitHub does not let a pull request's author approve their own PR. A non-zero
+> count makes **every** PR permanently unmergeable. Setting it to 0 removes GitHub's mechanical
+> approval requirement and **nothing else** — PR-only merge, blocked direct pushes, `enforce_admins`,
+> force-push and deletion protection all remain.
+>
+> **Review remains mandatory as process:** *Codex implements → Claude reviews → owner authorises
+> merge.* Merging without Claude's review is a process violation. When a second eligible account
+> exists, restoring the count to 1 is a settings change plus an ADR revision.
 
 **Phase 2 — T14, once the real workflows exist:**
 
@@ -847,8 +865,9 @@ VS0 is complete when **every** line below is true and demonstrated by an artifac
 checklist for acceptance, not a summary.
 
 **Repository**
-1. Private GitHub repository exists; `main` is protected; PR-only merge with review; force-push
-   and deletion of `main` blocked. *(Required status checks are Phase 2 — criterion 24.)*
+1. **Public** GitHub repository exists at `GITHUB_OWNER/GITHUB_REPOSITORY`; `main` is protected;
+   PR-only merge; `required_approving_review_count` is **0**; `enforce_admins` is **true**;
+   force-push and deletion of `main` blocked. *(Required status checks are Phase 2 — criterion 24.)*
 2. `.gitattributes` declares Git LFS for `*.png`, `*.ogg`, `*.wav`, `*.aseprite`.
 3. `.gitignore` excludes `.godot/`, `export/`, `evidence/`, `*.tmp`; `*.import` files **are**
    committed.
@@ -948,6 +967,18 @@ escalation suggestions. They are halts.
 | 10 | A test fails and the only available fix is to weaken or skip the test |
 | 11 | A task cannot be completed within its `ALLOWED PATHS` |
 | 12 | The work would exceed VS0 scope as defined in §2 and §3 |
+| 13 | **The implementation would differ from currently accepted authority — even when the owner has stated the new intent conversationally** (see the rule below) |
+
+> **Stop condition 13 — a conversational decision is not an amendment.** If Luisma says something in
+> conversation that differs from an accepted document — a different repository visibility, a
+> different value, a different rule — that is an instruction to **amend the document**, not
+> permission to implement the difference. Report the divergence and stop until the authority document
+> has been updated. The order is always **decide → amend the authority → implement**, and it does not
+> change because the owner is the source of the change.
+>
+> Reporting *"architecture deviations: none"* while the implementation differs from accepted
+> authority is a reporting defect in its own right, independent of whether the difference is later
+> approved. Recorded from VS0-T01 (§31.3).
 
 **The reporting format on a stop:** what was attempted · which document and section caused the stop ·
 what the two conflicting requirements are · what Codex would need in order to proceed. **No proposed
@@ -984,18 +1015,18 @@ conditions are additions, never replacements.
 
 | Field | Content |
 |---|---|
-| **Objective** | Create the private repository, Phase-1 branch protection, ignore/attribute files, README and PR template. **No Godot content. No CI workflow. No required status checks.** |
+| **Objective** | Create the **public** repository, Phase-1 branch protection, ignore/attribute files, README and PR template. **No Godot content. No CI workflow. No required status checks.** |
 | **Required reading** | ADR-002 §1, §2 |
-| **Dependencies** | None. **Bootstrap inputs:** `GITHUB_OWNER`, `GITHUB_REPOSITORY` (§4). Codex must not invent them. |
+| **Dependencies** | None. **Bootstrap inputs (§4, both SUPPLIED):** `GITHUB_OWNER` = `inmoaiasistente-luisma`, `GITHUB_REPOSITORY` = `galapagos-the-origin`. Use these exact values; invent nothing. |
 | **Allowed paths** | `/.gitignore` `/.gitattributes` `/README.md` `/.github/PULL_REQUEST_TEMPLATE.md` |
 | **Forbidden paths** | `/.github/workflows/**` *(owned by T14)* · everything else |
-| **Implementation requirements** | Private repo at `GITHUB_OWNER/GITHUB_REPOSITORY` — **configured only once the real values are supplied; no invented or placeholder account name** · default branch `main` · `main` protected, no direct pushes by anyone · PR-only merge with review · **force-push to `main` blocked** · **deletion of `main` blocked** · branch naming `feature/<task-id>-<slug>`, `fix/<task-id>-<slug>` · `.gitattributes` declares LFS for `*.png`, `*.ogg`, `*.wav`, `*.aseprite` · `.gitignore` excludes `.godot/`, `export/`, `evidence/`, `*.tmp` and **does not** exclude `*.import` · `README.md` · PR template carrying the task packet's Acceptance Criteria and required evidence · repository visibility and settings evidence captured. **Configure NO required status checks, and create NO workflow file — `/.github/workflows/**` belongs to T14.** |
+| **Implementation requirements** | **Public** repo at `GITHUB_OWNER/GITHUB_REPOSITORY` (ADR-002 §1.1) — **use the supplied values exactly (§4); invent no account, organization or placeholder name** · default branch `main` · `main` protected, no direct pushes by anyone · PR-only merge · **`required_approving_review_count` = 0** · **`enforce_admins` = true** · **force-push to `main` blocked** · **deletion of `main` blocked** · branch naming `feature/<task-id>-<slug>`, `fix/<task-id>-<slug>` · `.gitattributes` declares LFS for `*.png`, `*.ogg`, `*.wav`, `*.aseprite` · `.gitignore` excludes `.godot/`, `export/`, `evidence/`, `*.tmp` and **does not** exclude `*.import` · `README.md` · PR template carrying the task packet's Acceptance Criteria and required evidence · repository visibility and settings evidence captured. **Configure NO required status checks, and create NO workflow file — `/.github/workflows/**` belongs to T14.** |
 | **Tests** | None (no code). Verified by repository settings evidence. |
-| **Acceptance criteria** | Repository is private · default branch is `main` · a direct push to `main` is rejected · `main` cannot be force-pushed or deleted · a change to `main` is possible only through a pull request · `git check-attr` confirms the LFS patterns · README and PR template present · repository visibility and branch-protection settings evidence attached.<br><br>**Required CI status checks are intentionally deferred until T14, when the real VS0 workflows and their stable check names exist.** Their absence at T01 is an approved deferral, **not** a failed acceptance criterion. |
+| **Acceptance criteria** | Repository is **public** · default branch is `main` · `required_approving_review_count` is **0** · `enforce_admins` is **true** · a direct push to `main` is rejected · `main` cannot be force-pushed or deleted · a change to `main` is possible only through a pull request · `git check-attr` confirms the LFS patterns · README and PR template present · repository visibility and branch-protection settings evidence attached.<br><br>**Required CI status checks are intentionally deferred until T14, when the real VS0 workflows and their stable check names exist.** Their absence at T01 is an approved deferral, **not** a failed acceptance criterion. |
 | **Persistence impact** | None |
 | **Approved deferred hardening** | **Required status checks → T14.** Recorded here as an owner-approved deferral. It is **not technical debt**, it is **not an architecture deviation**, and it must not be reported as either. The hardening is complete when criterion 24 of §20 passes. |
 | **Parallelization** | Blocks everything. Nothing runs beside it. |
-| **Stop condition** | `GITHUB_OWNER` or `GITHUB_REPOSITORY` is unknown at the step that needs it — **stop and request them.** Produce every file that does not depend on them; invent neither. |
+| **Stop condition** | The repository's actual state differs from this packet in any way this packet does not authorize — **report the divergence and stop before changing it**, even if Luisma has described the difference conversationally (§22 condition 13). Both bootstrap inputs are supplied (§4); invent neither. |
 
 ---
 
@@ -1435,9 +1466,10 @@ All three items raised at C-002 review are decided. Nothing in this specificatio
 | 2 | **Engine version** | **Godot 4.7.2-stable**, standard GDScript build, no .NET. Templates 4.7.2 exactly. **4.8 pre-release builds are not authorized.** Upgrades require an ADR. |
 | 3 | **CI toolchain acquisition** | **APPROVED** under four conditions — exact version, explicit URL, SHA-256 verified, no `latest`. The "no build-time dependency fetching" rule is clarified in ADR-002 §2 as governing **project libraries**, not the external toolchain. **GUT stays vendored and is never downloaded by CI.** |
 
-**One value remains outstanding, and it is an input rather than a decision:** `GITHUB_OWNER` and
-`GITHUB_REPOSITORY` (§4). T01 produces everything that does not depend on them and **stops** at the
-step that does. Codex invents neither.
+**No value remains outstanding.** `GITHUB_OWNER` and `GITHUB_REPOSITORY` — the last two, and inputs
+rather than decisions — were supplied by the owner on 2026-09-13 and are recorded in §4, together
+with the repository's **public** visibility (§31.1). Codex still invents neither; it uses the
+recorded values.
 
 ---
 
@@ -1483,7 +1515,7 @@ unacceptable:
 
 | | Old requirement | New requirement |
 |---|---|---|
-| **T01** | *"a PR without green checks cannot merge"* | Phase-1 protection only: private repo · default branch `main` · direct pushes blocked · PR-only merge with review · force-push and deletion of `main` blocked · LFS, ignore, README, PR template, settings evidence. **No required status checks. No workflow file.** |
+| **T01** | *"a PR without green checks cannot merge"* | Phase-1 protection only: repository *(private at the time of A-01; **PUBLIC** from A-02, §31)* · default branch `main` · direct pushes blocked · PR-only merge *("with review" at the time of A-01; **0 approving GitHub reviews** from A-02, §31.2)* · force-push and deletion of `main` blocked · LFS, ignore, README, PR template, settings evidence. **No required status checks. No workflow file.** |
 | **T14** | *"branch protection requiring all checks"* (unspecified mechanism) | Owns `.github/workflows/` outright. After the workflows exist on `main` with stable check names, adds those exact names as required, and proves four cases: green merges · failing cannot · missing/pending cannot · direct push still blocked. |
 
 **No temporary, bootstrap or placeholder check is authorized.** The T01 → T14 gap is an **approved
@@ -1543,3 +1575,82 @@ With this amendment, no task requires Codex to invent architecture:
 
 **C-002 remains ACCEPTED. T01 is READY. T14 is READY with corrected scope. T15 is unchanged and
 READY. No other task is affected.**
+
+---
+
+## 31. Amendment A-02 — repository visibility and the solo-owner review model
+
+    DATE: 2026-09-13
+    ORIGIN: Owner decision following Claude's architecture review of PR #1 (VS0-T01)
+    TYPE: Implementation-specification correction + ADR-002 revision. No new architectural decision.
+
+### 31.1 Repository visibility — PRIVATE → **PUBLIC**
+
+| | Old | New |
+|---|---|---|
+| Visibility | **Private** GitHub repository | **PUBLIC** — `inmoaiasistente-luisma/galapagos-the-origin` |
+
+**Reason (owner):** the current GitHub plan does not provide the required branch-protection features
+on private repositories, while a public repository supports the accepted protection model in full.
+**Protection was chosen over concealment, deliberately.**
+
+**No active authority requires a private repository any more.** The previous requirement survives
+only as superseded history in ADR-002 §1.1 and in this section.
+
+**Standing consequence, recorded because it is permanent:** everything committed is published, canon
+included. **Never commit a secret, credential or token** — on a public repository a leak is
+compromised on push and deletion does not un-publish it. Nothing in Volume I requires one (no
+network, no telemetry, no analytics), and `.gitignore` excludes `.env*`.
+
+### 31.2 Solo-owner review model — approving reviews **0**
+
+| | Old | New |
+|---|---|---|
+| Merge rule | "Pull request only, **with review**" — read by GitHub as `required_approving_review_count: 1` | Pull request only, **`required_approving_review_count: 0`** |
+
+**Reason:** the repository has one eligible GitHub account, and GitHub does not permit a PR's author
+to satisfy their own approval requirement. A non-zero count makes every PR permanently unmergeable —
+which is exactly what PR #1 demonstrated.
+
+**Unchanged and still mandatory, mechanically:** PR-only merge · direct pushes to `main` blocked ·
+`enforce_admins: true` · force-push blocked · deletion of `main` blocked · required CI checks
+deferred to T14 under A-01.
+
+**Unchanged and still mandatory, operationally:**
+
+> **Codex implements → Claude reviews → owner authorises merge.**
+
+**This amendment removes GitHub's approval count. It does not remove review.** Merging a pull
+request Claude has not reviewed is a process violation. When a second eligible account exists,
+raising the count back to 1 is a settings change plus an ADR-002 revision.
+
+### 31.3 Reporting rule — reinforced
+
+PR #1 was reported as *"Architecture deviations: none"* while the repository's visibility differed
+from the then-accepted authority. Under A-02 the visibility is authorised and is no longer a
+deviation — but the reporting rule stands and is now explicit:
+
+> **If an implementation differs from currently accepted authority, Codex reports the divergence and
+> STOPS — even when the owner has stated the new intent conversationally — until the authority
+> document has been updated.**
+
+A conversational decision is an instruction to amend the documents. It is not itself an amendment,
+and it does not retroactively make the divergence compliant. The order is always: **decide → amend
+the authority → implement.** This is the same rule as *"if the spec changed, update the authority
+document first"*; A-02 records that it applies to owner decisions too, not only to Codex's own
+judgement calls.
+
+### 31.4 Documents and sections changed
+
+| Document | Sections |
+|---|---|
+| `adr/ADR-002` | Header (REVISION v2) · §1 Host and Merge rows · **new §1.1** (visibility) · **new §1.2** (review model) · Consequences · Risks (4 rows added) |
+| `ARCHITECTURE.md` | §0 ADR index, ADR-002 row |
+| `VS0_FOUNDATION_SPEC.md` | Header (A-02) · §2 deliverable 1 · §16.2 Phase-1 table + solo-owner note · §20 criterion 1 · packet **T01** (objective, requirements, acceptance) · §30.1 history row · **§31** (this section) |
+| `CODEX_VS0_HANDOFF.md` | §3 bootstrap inputs · §6 branch rules |
+| Authorised for **Codex** to change in PR #1 | `.github/PULL_REQUEST_TEMPLATE.md` (add Worktree, Commit(s), Files created, Files modified) · `README.md` (authority-order reference → `ARCHITECTURE.md` §16) |
+
+### 31.5 Status
+
+**C-002 remains ACCEPTED. T01 remains READY**, with corrected visibility and review requirements.
+No other task is affected.
