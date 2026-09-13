@@ -3,6 +3,10 @@
 - Task ID:
 - Task packet:
 - Branch:
+- Worktree:
+- Commit(s):
+- Files created:
+- Files modified:
 
 ## Summary
 

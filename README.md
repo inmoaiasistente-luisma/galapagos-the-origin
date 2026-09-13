@@ -16,9 +16,9 @@ production content are intentionally out of scope.
 ## Authoritative project documents
 
 The accepted canon, architecture, conventions, ownership rules, ADRs, and VS0 specification live in
-[`docs/`](docs/). When sources disagree, follow the authority order recorded in the accepted VS0
-handoff. Canonical content will be authored in `data/source/*.json`; generated resources are
-rebuildable outputs and are never edited by hand.
+[`docs/`](docs/). When sources disagree, follow the authority order recorded in
+[`ARCHITECTURE.md` §16](docs/ARCHITECTURE.md#16-document-authority). Canonical content will be authored
+in `data/source/*.json`; generated resources are rebuildable outputs and are never edited by hand.
 
 ## Repository workflow
 
