@@ -1217,7 +1217,7 @@ conditions are additions, never replacements.
 | **Branch** | `feature/VS0-T03-folder-skeleton` (`CONVENTIONS.md` §5) |
 | **Allowed paths** | `README.md` and `.gitkeep` inside the directories of the **VS0-T03 directory manifest** below — **those two filenames only** · **`/tests/unit/test_folder_contract.gd`** *(single-file exception to T04's ownership of `/tests/**`; §25)* · **`/.gitignore`, for exactly one line change — `evidence/` becomes `/evidence/` and nothing else** *(OWNER DECISION C8, §40.6)* |
 | **Forbidden paths** | Any `.gd` *(except the single test file named above)*, `.tscn`, `.json`, `.cfg` or any other extension · **any `.gitignore` change other than the single authorized line** — no other line may be added, removed or reordered · `/.github/**` *(T01 and T14)* · `/addons/**` *(T04)* · `/docs/**` *(Claude and Luisma only)* · `/project.godot` *(T02)* · **any directory the manifest does not list** |
-| **Implementation requirements** | **Create exactly the directories in the VS0-T03 directory manifest and no others** — §5 is the VS0 **end-state shape**, not a T03 file list · each of those directories carries a `README.md` of **exactly three lines**, `Layer:` / `Owner:` / `Never:`, every value taken **verbatim from the manifest** — **Codex composes, paraphrases and infers nothing** · `.gitkeep`, **zero bytes**, in **`systems/`, `content/` and `data/generated/` only** · **`systems/` and `content/` receive no subdirectory** (§5) · **exactly one file already on `main` is modified — `/.gitignore`, by the single authorized line change (§40.6) — and no file is deleted** |
+| **Implementation requirements** | **Create exactly the directories in the VS0-T03 directory manifest and no others** — §5 is the VS0 **end-state shape**, not a T03 file list · each of those directories carries a `README.md` of **exactly three lines**, `Layer:` / `Owner:` / `Never:`, every value taken **verbatim from the manifest** — **Codex composes, paraphrases and infers nothing** · `.gitkeep`, **zero bytes**, in **`systems/`, `content/` and `data/generated/` only** · **`systems/` and `content/` receive no subdirectory** (§5) · **exactly one file already on `main` is modified — `/.gitignore`, by the single authorized line change (§40.6) — and no file is deleted** · **order is binding: make the `/.gitignore` change FIRST, then create and stage the manifest, because `tools/evidence/README.md` is ignored until that line changes** · **`git add -f` is forbidden — if any manifest path requires forcing, stop and report** (§40.6.1) |
 | **Tests** | `tests/unit/test_folder_contract.gd`, **written and committed in T03**. **It cannot run in T03 — GUT lands in T04 — and Codex must not report it as passing.** Behaviour is fixed by the *Test contract* below the manifest. |
 | **Acceptance criteria** | The manifest is realised exactly — every directory present, every `README.md` present and conforming, `.gitkeep` in exactly three places · **T03 itself adds no source, data or config file beyond the one authorized test file.** This does **not** mean the repository contains none: T02's files are on `main` and are **preserved byte-for-byte**, as is **every other pre-existing file except `/.gitignore`**, which carries exactly the one authorized line change (§40.6) · **`git diff --name-status T03_BASE...HEAD` returns exactly 40 entries — the 39 paths of the closed expected set below, every one with status `A`, plus `.gitignore` with status `M` and nothing else** — zero `D`, `R`, `C`, no missing path and no extra path · **the `.gitignore` diff is exactly `-evidence/` / `+/evidence/`** · **`systems/` and `content/` each contain exactly `README.md` and `.gitkeep`, and no `systems/<anything>/` or `content/<anything>/` exists** — a **VS0-T03 acceptance invariant, not a permanent project invariant**, proven by static check and **never asserted in the durable test suite** · the project still boots headless with exit `0` · **verified by the PR's static checks, not by running the GUT test** |
 | **Evidence** | Attached to the PR by hand — CI does not exist until T14, `evidence/` is gitignored and `/tools/evidence/**` is T15's: the **verbatim output of all ten PR-time static checks** listed in the test contract below, as `t03_name_status.txt` *(the complete `--name-status` output — **all 40 entries**: 39 with status `A`, plus the single `M` on `.gitignore`)* · `t03_expected_set_diff.txt` *(the sorted set comparison, which must show no difference)* · `t03_gitignore_diff.txt` *(the complete `.gitignore` diff, which must be the two lines and nothing more)* · `t03_check_ignore.txt` *(the `git check-ignore` result for `tools/evidence/README.md`)* · `t03_tree.txt` · `t03_readme_lines.txt` · `t03_empty_roots.txt` · `t03_headless_boot.txt`, and **the full 40-character `T03_BASE` SHA**. **Verbatim command output, not summaries.** |
@@ -3077,7 +3077,7 @@ third commit on the same pull request.
 > expected to go red is a suite that gets ignored. Conditions true only at one moment are proven at
 > that moment, once, in evidence.
 
-### 40.6 Owner decision C8 — `.gitignore` scope, and the one authorized non-doc change
+### 40.6 Owner decision C8 — `.gitignore` scope, authorized here and EXECUTED BY VS0-T03
 
 **The accepted T03 manifest was unimplementable against the repository's own `.gitignore`.**
 
@@ -3087,10 +3087,12 @@ matches at every depth** — so the rule ignored not just the root evidence dire
 versioned additions, and §23 gives `/tools/evidence/**` to **T15**. Neither could be committed
 without `git add -f`.
 
-**Measured against the repository, not assumed.** Before the change, `git check-ignore -v` reported
-`.gitignore:6:evidence/` as the matching rule for **`tools/evidence/README.md`**, for
-`tools/evidence/foo/bar.gd` and for `evidence/run.txt` alike. After it, the root path still matches
-`/evidence/` and **`tools/evidence/**` matches nothing at all.**
+**Measured against the repository, not assumed.** With the rule as it stands, `git check-ignore -v`
+reports `.gitignore:6:evidence/` as the matching rule for **`tools/evidence/README.md`**, for
+`tools/evidence/foo/bar.gd` and for `evidence/run.txt` alike. The corrected rule was applied
+experimentally and measured before being authorized: with `/evidence/` in place, the root path still
+matches and **`tools/evidence/**` matches nothing at all.** **That experiment was reverted — see
+§40.6.1 — so the change is authorized here and performed by T03.**
 
 > **OWNER DECISION C8 — Luisma, 2026-09-14. APPROVED.**
 >
@@ -3101,9 +3103,11 @@ without `git add -f`.
 > +/evidence/
 > ```
 >
-> **This is the only newly authorized non-doc change in the authority patch.** The exception is
-> **not generalized**: no other `.gitignore` line may be added, removed or reordered, and no other
-> non-doc path is opened to T03.
+> **This is the only non-doc change authorized anywhere in VS0-T03, and VS0-T03 is what performs
+> it.** The exception is **not generalized**: no other `.gitignore` line may be added, removed or
+> reordered, and no other non-doc path is opened to T03.
+>
+> **The authority patch that records this decision does NOT itself land the change** (§40.6.1).
 
 **What the corrected rule does and does not do.** `/evidence/` is anchored to the repository root,
 so the **root `evidence/` directory stays ignored** — the local evidence-artifact exclusion that
@@ -3115,6 +3119,36 @@ T15's tooling both require.
 *Forbidden paths* bar every other `.gitignore` edit; the result is stated as **39 new files, 1
 modified file, 0 deleted files**; and static verification checks **1**, **3** and **10** prove the
 modification is present, is exactly those two lines, and actually achieved its purpose.
+
+#### 40.6.1 The change belongs to T03, not to this authority patch — C11
+
+**§23 defines `T03_BASE` as the merge commit of this authority patch, and the binding contract
+requires T03's diff from `T03_BASE` to contain exactly one `M` entry, and for that entry to be
+`.gitignore` with the diff `-evidence/` / `+/evidence/`.**
+
+> **Those two statements cannot both hold if the authority patch itself merges the line.** After
+> such a merge `T03_BASE` would already contain `/evidence/`, and **T03 could not produce the `M`
+> entry its own acceptance criteria require.** The task would be unable to satisfy a contract that
+> was written for it.
+
+The authority patch's branch applied the line experimentally in order to measure it, **and reverted
+it before merge.** **The decision is recorded here; the edit is performed by T03.**
+
+| | State |
+|---|---|
+| **At `T03_BASE`** (this patch merged) | `.gitignore` line 6 reads **`evidence/`**. **`tools/evidence/**` IS ignored, and that is expected and correct** — no marker exists there yet. |
+| **During T03** | Codex makes the authorized change, **then** creates and stages the markers. |
+| **At T03 HEAD** | `.gitignore` line 6 reads **`/evidence/`**. `tools/evidence/README.md` is versioned, and `git check-ignore -v tools/evidence/README.md` returns **no match, exit `1`** (check 10). |
+
+**Deterministic implementation order — not optional, and not a matter of taste:**
+
+1. **Change `/.gitignore`**: `evidence/` → `/evidence/`. Nothing else in that file.
+2. **Then** create and stage `tools/evidence/README.md` together with the rest of the manifest.
+3. **`git add -f` is FORBIDDEN.** If any manifest path needs forcing, **a rule is wrong — stop and
+   report** (§22). The whole purpose of C8 is that no path in the manifest requires it.
+
+**This authority patch therefore changes documentation only.** Its cumulative result against `main`
+touches `docs/VS0_FOUNDATION_SPEC.md` and `docs/CODEX_VS0_HANDOFF.md` and **no other file**.
 
 > **Why this was worth a decision rather than a silent fix.** The alternative was `git add -f`, and
 > it would have worked. **It would also have made the repository's ignore rules and its contents
@@ -3147,8 +3181,19 @@ altered.**
 `evidence/` → `/evidence/` · §23 VS0-T03 *Allowed paths*, *Forbidden paths*, *Implementation
 requirements*, *Acceptance criteria* and *Evidence* rows · the **T03 result** totals · the static
 verification table (checks **1**, **3** and **10** added or restated, the rest renumbered) · §40.6
-(new). **`/.gitignore` is the only non-doc file this authority patch touches, and it changes exactly
-one line.** The **closed 39-path addition set is unchanged**, and so is every C1 – C7 conclusion.
+(new). The **closed 39-path addition set is unchanged**, and so is every C1 – C7 conclusion.
+
+> **⚠ Superseded in part by C11 (sixth commit).** Commit 4 applied the `.gitignore` line **on the
+> branch**, to measure it. **C11 reverted that edit before merge**, because `T03_BASE` semantics
+> require **T03** to own the modification (§40.6.1). **OWNER DECISION C8 is unchanged and remains
+> APPROVED** — only the commit that performs it moved, from the authority patch to T03.
+
+**Sixth commit on the same PR — C11 sequencing correction (§40.6.1):** `/.gitignore` reverted to its
+`main` content, so the patch's cumulative result has **no `.gitignore` diff at all** · §40.6 heading,
+measurement paragraph and decision box · **new §40.6.1** · §23 VS0-T03 *Implementation requirements*
+(binding order, `git add -f` forbidden) · this paragraph. **The authority patch is documentation
+only.** **No binding T03 value changed**: still 39 `A` + 1 `M` + 0 `D`, ten static checks, five
+durable assertions, the same closed 39-path set, the same `Owner:` and `Never:` strings.
 
 Unchanged: the **engine pin** · the **renderer** · the **320 × 180 pixel contract**, integer scaling,
 Nearest filtering, 16 × 16 tiles, 16 × 24 / 16 × 32 sprite classes · every **VS0-T02 technical
