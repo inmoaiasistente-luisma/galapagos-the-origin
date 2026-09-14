@@ -91,7 +91,7 @@ Ten waves. Do not start a wave until the previous one is merged green.
 |---|---|---|
 | **A** | T01 Repository bootstrap | Repo, LFS, ignore rules, README, PR template. **No workflow file, no required status checks — deferred to T14 by owner decision.** **Files are on `main`. T01 was ACCEPTED by the owner on 2026-09-14, once T01R proved enforcement (spec §37).** |
 | **A′** | **T01R Enforcement remediation** | The Phase-1 **ruleset**, and **live proof** that direct push, force-push and deletion of `main` are rejected and that a PR merges with 0 approvals. **Blocked every later wave; COMPLETE and ACCEPTED 2026-09-14 — the block is discharged (spec §37).** |
-| **B** | T02 Godot baseline · T03 Folder skeleton | 4.7.2 pinned, pixel contract, folder tree. **T02 ACCEPTED 2026-09-14 (spec §39). T03 outstanding — directories and ownership markers only; see spec §23 manifest and §40.** |
+| **B** | T02 Godot baseline · T03 Folder skeleton | 4.7.2 pinned, pixel contract, folder tree. **T02 ACCEPTED 2026-09-14 (spec §39). T03 outstanding — directory topology and ownership markers, plus the two explicitly authorized exceptions in the binding §23 packet (one test file, one `.gitignore` line). Build from the §23 manifest; see spec §40.** |
 | **C** | T04 GUT | Headless test runner, gate 5 |
 | **D** | T05 Convention lint · T06 Layer lint · T07 Validator framework | Gates 1, 2, 3 (partial) |
 | **E** | T08 Canon Registry + generators | Gates 3, 4 complete |
