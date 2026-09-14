@@ -2500,8 +2500,9 @@ Ruleset `main-phase1`, id `23190427`, as read back at acceptance: `enforcement: 
 had run. It is **preserved unchanged as history** and is **superseded by this section**.
 
 The same applies to **every dated status statement written before 2026-09-14**: the A-03 status
-blockquote on the §23 T01 packet, and the "T01: NOT ACCEPTED" lines inside **§32, §33, §34 and
-§35**. All are **preserved unchanged as the record of what was true when each amendment merged.**
+blockquote on the §23 T01 packet · **"VS0-T01: NOT ACCEPTED"** in **§32** and **§33** · the
+outstanding-test table in **§35.5** · the status list in **§36.8**. All are **preserved unchanged as
+the record of what was true when each amendment merged.**
 
 > **Where any of them differs from this section, §37 is authoritative on task status.** No amendment
 > loses any other authority: **§32–§36 remain authoritative on the enforcement model, on A-04's
