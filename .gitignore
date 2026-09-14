@@ -3,7 +3,7 @@
 
 # Local builds and evidence artifacts
 export/
-evidence/
+/evidence/
 *.tmp
 
 # Local worktrees and editor state
