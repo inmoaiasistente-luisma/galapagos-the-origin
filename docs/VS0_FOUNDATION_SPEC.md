@@ -20,6 +20,9 @@
                 A-06 (2026-09-13) — MICRO. T01R test E4 split into E4A (API proof of the
                 deletion rule) and E4B (behavioural rejection). The default-branch
                 safeguard makes the ruleset's deletion behaviour unisolatable. See §35.
+                A-07 (2026-09-13) — MICRO. Post-merge SHA semantics: T01R final reporting
+                records the main SHA observed at report time; no fixed-SHA equality. E4
+                condition 3 restated temporally. §35 preserved, annotated. See §36.
     DERIVES FROM: Master Canon v1.1 (ACCEPTED) · ADR-001 … ADR-008 (ACCEPTED) ·
                   ARCHITECTURE.md · CONVENTIONS.md · STATE_OWNERSHIP.md ·
                   CANON_CONFLICT_RESOLUTION.md (all ACCEPTED)
@@ -1113,8 +1116,8 @@ conditions are additions, never replacements.
 | **Branch** | `feature/VS0-T01R-enforcement-verification` |
 | **Implementation requirements** | **(a)** A repository ruleset exists exactly as specified in ADR-002 §1.3 — `enforcement: "active"`, target `refs/heads/main`, rules `pull_request` (`required_approving_review_count: 0`), `non_fast_forward`, `deletion`, and **`bypass_actors: []`**. **(b)** A single harmless, authorised line is added to `README.md` recording that `main` is enforced by a repository ruleset and pointing at ADR-002 §1.3 — this is the change that travels through the proof, and it is real content rather than a throwaway. **(c)** Each acceptance test below is executed **from the owner/admin account**, because that is the account whose push was wrongly accepted. **Tests already recorded as PASS in the accepted-results row above are not rerun.** **(d)** Verbatim command output is captured for each. |
 | **Tests** | The acceptance tests are the deliverable. There is no code to unit-test. |
-| **Results already accepted (A-06, 2026-09-13)** | **E1A = PASS · E2 = PASS · E3 = PASS.** These are **accepted and must not be rerun.** Outstanding: **E4A** (API proof) · **E4B** (rejection output already captured — retain it; acceptance outstanding) · **E5** final readback. Then complete T01R reporting. `main` must still exist at `679fabfd3a9a9b0ceea544eed6db070eea5d7d9e`. |
-| **Acceptance criteria** | **A-03's E1 is WITHDRAWN as invalid** (A-04, §33): the commit it pushed was by construction the head of an open PR, so the rule treats it as associated and accepts it. It is replaced by E1A and E1B.<br><br>**E1A — unassociated direct push rejected.** Create a fresh disposable commit on a branch with **no open PR targeting `main`**, containing only an explicitly authorized harmless verification change. `git push origin <unassociated-commit>:main` must be **REJECTED — not associated with a pull request**; verbatim stderr captured. **If it is accepted, STOP: the `pull_request` rule is not enforcing its documented property.**<br>**E1B — associated-commit semantics, recorded not tested.** Document that a commit already the head of an open PR **may be accepted** when pushed directly under the `pull_request` rule. This is **not** a bypass failure — GitHub considers the change associated. **Project process still forbids it, and Codex must never use that path intentionally.**<br>**E2 — normal PR path.** A fresh authorized verification commit on a feature branch, opened as a PR and merged through GitHub's **normal merge operation** with `required approvals = 0`. **ACCEPTED. No `--admin`. No bypass.**<br>**E2 evidence must record `PR number` · `headRefOid` · `mergeCommit` · `reviewDecision` · the merge method/operation used, and acceptance requires `headRefOid != mergeCommit`** (A-05, §34). A PR reporting `MERGED` is **not** sufficient: PR #1 and PR #3 both report `MERGED` and neither was merged.<br>**E3 — force push rejected.** A non-fast-forward update to `main` is **REJECTED by `non_fast_forward`**; stderr captured.<br>**E4A — deletion rule proven by API.** The active `main-phase1` ruleset, read from the GitHub API, **targets `refs/heads/main`** · **contains a `deletion` rule** · **`enforcement: "active"`** · **`bypass_actors: []`**; raw JSON captured.<br>**E4B — deletion behaviourally rejected.** `git push origin --delete main` is **rejected**; verbatim stderr captured. **`main` is the default branch, so GitHub's default-branch safeguard may reject the deletion before the ruleset produces a distinguishable error. The absence of a ruleset-specific `GH013` message MUST NOT fail T01R** (A-06, §35).<br>**Deletion protection is accepted on the conjunction of all four:** (1) an active `deletion` rule proven by API readback · (2) deletion of `main` behaviourally rejected · (3) `main` still exists at the expected SHA · (4) no bypass actor exists. **Do not claim the behavioural rejection proves which layer fired.**<br>**E5 — ruleset readback.** `enforcement = active` · `bypass_actors = []` · target `refs/heads/main` · `pull_request` present · `non_fast_forward` present · `deletion` present; raw JSON captured with the ruleset id.<br><br>**E1A, E2, E3, the E4A + E4B deletion-protection conjunction (the composite result recorded as E4), and E5 must all pass. E1A failing to fail is a hard stop.** |
+| **Results already accepted (A-06, 2026-09-13)** | **E1A = PASS · E2 = PASS · E3 = PASS.** These are **accepted and must not be rerun.** Outstanding: **E4A** (API proof) · **E4B** (rejection output already captured — retain it; acceptance outstanding) · **E5** final readback. Then complete T01R reporting. **Final reporting records the current `main` SHA observed at final-report time.** No equality with the historical E4B SHA is required; authorized pull-request merges legitimately advance `main` (§36). |
+| **Acceptance criteria** | **A-03's E1 is WITHDRAWN as invalid** (A-04, §33): the commit it pushed was by construction the head of an open PR, so the rule treats it as associated and accepts it. It is replaced by E1A and E1B.<br><br>**E1A — unassociated direct push rejected.** Create a fresh disposable commit on a branch with **no open PR targeting `main`**, containing only an explicitly authorized harmless verification change. `git push origin <unassociated-commit>:main` must be **REJECTED — not associated with a pull request**; verbatim stderr captured. **If it is accepted, STOP: the `pull_request` rule is not enforcing its documented property.**<br>**E1B — associated-commit semantics, recorded not tested.** Document that a commit already the head of an open PR **may be accepted** when pushed directly under the `pull_request` rule. This is **not** a bypass failure — GitHub considers the change associated. **Project process still forbids it, and Codex must never use that path intentionally.**<br>**E2 — normal PR path.** A fresh authorized verification commit on a feature branch, opened as a PR and merged through GitHub's **normal merge operation** with `required approvals = 0`. **ACCEPTED. No `--admin`. No bypass.**<br>**E2 evidence must record `PR number` · `headRefOid` · `mergeCommit` · `reviewDecision` · the merge method/operation used, and acceptance requires `headRefOid != mergeCommit`** (A-05, §34). A PR reporting `MERGED` is **not** sufficient: PR #1 and PR #3 both report `MERGED` and neither was merged.<br>**E3 — force push rejected.** A non-fast-forward update to `main` is **REJECTED by `non_fast_forward`**; stderr captured.<br>**E4A — deletion rule proven by API.** The active `main-phase1` ruleset, read from the GitHub API, **targets `refs/heads/main`** · **contains a `deletion` rule** · **`enforcement: "active"`** · **`bypass_actors: []`**; raw JSON captured.<br>**E4B — deletion behaviourally rejected.** `git push origin --delete main` is **rejected**; verbatim stderr captured. **`main` is the default branch, so GitHub's default-branch safeguard may reject the deletion before the ruleset produces a distinguishable error. The absence of a ruleset-specific `GH013` message MUST NOT fail T01R** (A-06, §35).<br>**Deletion protection is accepted on the conjunction of all four:** (1) an active `deletion` rule proven by API readback · (2) deletion of `main` behaviourally rejected · (3) **the E4B evidence proves that immediately after the deletion attempt, `main` still existed at the same SHA observed immediately before the attempt** · (4) no bypass actor exists. **Do not claim the behavioural rejection proves which layer fired.**<br>**E5 — ruleset readback.** `enforcement = active` · `bypass_actors = []` · target `refs/heads/main` · `pull_request` present · `non_fast_forward` present · `deletion` present; raw JSON captured with the ruleset id.<br><br>**E1A, E2, E3, the E4A + E4B deletion-protection conjunction (the composite result recorded as E4), and E5 must all pass. E1A failing to fail is a hard stop.** |
 | **Persistence impact** | None |
 | **Canon impact** | None |
 | **Evidence** | Attached to the PR by hand (CI does not exist until T14): `t01r_e1a_unassociated_push_rejected.txt` · `t01r_e2_pr_merge.txt` · `t01r_e3_force_push_rejected.txt` · `t01r_e4a_deletion_rule.json` · `t01r_e4b_delete_rejected.txt` · `t01r_e5_ruleset.json`. **Verbatim output. Not a summary, not a screenshot of a settings page.** E1B produces no evidence file — it is a recorded semantic, not a test.<br><br>**`t01r_e2_pr_merge.txt` must contain all five fields** — `PR number`, `headRefOid`, `mergeCommit`, `reviewDecision`, merge method/operation — **and show `headRefOid != mergeCommit`** (§34). |
@@ -2241,6 +2244,13 @@ fail T01R.**
 > support *"the ruleset rejected this deletion"*, and no evidence available without mutating the
 > repository would.
 
+> **⚠ CONDITION 3 SHA SEMANTICS SUPERSEDED BY A-07 (§36).** The fixed/expected-SHA wording above
+> describes the **historical E4B observation** and is **not** a live final-state equality
+> requirement. The operative condition 3 is the **temporal invariant** defined in §36: *the E4B
+> evidence proves that immediately after the deletion attempt, `main` still existed at the same SHA
+> observed immediately before the attempt.* Conditions 1, 2 and 4 are unchanged, and the
+> no-layer-attribution rule above is unchanged.
+
 ### 35.4 How this differs from A-05, deliberately
 
 A-05 hardened E2 because a **distinguishing artifact existed** — `headRefOid != mergeCommit` — and
@@ -2265,6 +2275,11 @@ proof is available, and no more when it is not.
 Remaining work: capture E4A, retain E4B, verify `main` still exists at
 `679fabfd3a9a9b0ceea544eed6db070eea5d7d9e`, run the final E5, complete T01R reporting.
 
+> **⚠ REMAINING-WORK SHA REQUIREMENT SUPERSEDED BY A-07 (§36).** The historical
+> `679fabfd3a9a9b0ceea544eed6db070eea5d7d9e` value is **retained as the E4B-time observation**.
+> **Final T01R reporting records the `main` SHA observed at report time and does not require
+> equality with that historical SHA** — authorized pull-request merges legitimately advance `main`.
+
 **No repository configuration change is required by this amendment.** The ruleset already satisfies
 E4A exactly as it stands.
 
@@ -2278,3 +2293,126 @@ clause, Evidence) · **§26 row 1R** · **§32.6** scope wording · **§32.7** (
 Unchanged: the enforcement model · the ruleset · A-04 semantics · **the acceptance meaning of E1A,
 E1B, E2, E3 and E5** · every other VS0 task · canon, gameplay, persistence, workflows and repository
 configuration.
+
+---
+
+## 36. Amendment A-07 (micro) — post-merge SHA semantics
+
+    DATE: 2026-09-13
+    ORIGIN: Stop condition raised after A-06 merged through PR #7 and advanced `main`
+    TYPE: Evidence-lifecycle correction. No enforcement change, no ruleset change, no new
+          architectural concept. A-06's text in §35 is preserved and annotated, never rewritten.
+
+### 36.1 The defect
+
+A-06's live requirement that `main` equal
+`679fabfd3a9a9b0ceea544eed6db070eea5d7d9e` became unsatisfiable after an authorized merge
+legitimately advanced `main`.
+
+**The defect is a category error, not a wrong SHA.** Historical fact and a living ref value were
+conflated. Substituting another fixed SHA would simply reproduce the failure. A live T01R rule must
+not name a fixed SHA equality.
+
+### 36.2 Historical E4B observation — closed, preserved, never repeated
+
+- `main` immediately before E4B: `679fabfd3a9a9b0ceea544eed6db070eea5d7d9e`;
+- attempt: `git push origin --delete main`;
+- result: **REJECTED**;
+- immediately after: the same SHA, per accepted E4B evidence/context;
+- rejecting layer: **NOT DETERMINABLE**.
+
+The A-06 merge commit `f3c9b01f15b3cbf92bb7849a3728f0f4956116a8` has first parent
+`679fabfd3a9a9b0ceea544eed6db070eea5d7d9e`.
+
+The captured rejection output is the behavioural evidence. The first-parent relationship
+independently corroborates that the base tip was still `679fabf…` when the next authorized merge
+occurred. It does **not** independently prove uninterrupted branch existence. It does **not**
+indicate which protection layer rejected E4B.
+
+**E4B MUST NOT be repeated.**
+
+### 36.3 Historical A-06 post-merge baseline
+
+Historical baseline observed immediately after the A-06 merge / at A-07 design time:
+
+`f3c9b01f15b3cbf92bb7849a3728f0f4956116a8`
+
+This is a historical observation, **NOT** a future equality requirement. `main` may later advance
+beyond this SHA through authorized merges, including the eventual A-07 merge.
+
+### 36.4 Corrected invariant
+
+- E4A proves an active, unbypassed deletion rule exists.
+- E4B proves the deletion attempt did not delete or move `main` at the time of the attempt.
+- Subsequent authorized PR merges may legitimately advance `main`, invalidating neither.
+- PR #7 / A-06 merge is such an authorized merge.
+- It does not invalidate E4B.
+
+### 36.5 Condition 3, restated temporally
+
+Deletion protection remains accepted on the conjunction of all four:
+
+1. an **active `deletion` rule** proven by API readback;
+2. deletion of `main` is **behaviourally rejected**;
+3. **the E4B evidence proves that immediately after the deletion attempt, `main` still existed at
+   the same SHA observed immediately before the attempt**;
+4. **no bypass actor exists.**
+
+Conditions 1, 2 and 4 remain unchanged.
+
+**No claim is made about which protection layer rejected E4B.**
+
+### 36.6 Live final-report rule
+
+**Final T01R reporting records the `main` SHA observed at final-report time.**
+
+Authorized pull-request merges may legitimately advance `main`. No equality with either historical
+SHA is required:
+
+- `679fabf…`;
+- `f3c9b01…`.
+
+A recorded observation stays true. An equality requirement against a moving ref does not.
+
+### 36.7 Scope
+
+Changed:
+
+- header amendment record;
+- §23 Results-already-accepted row;
+- §23 E4 condition 3;
+- §35.3 supersession annotation only;
+- §35.5 supersession annotation only;
+- §36.
+
+**§23 is the live authority.**
+
+Unchanged:
+
+- original A-06 §35 text;
+- enforcement model;
+- ruleset;
+- A-04 semantics;
+- E4A;
+- E4B's behavioural finding/evidence;
+- E4 conditions 1, 2 and 4;
+- no-layer-attribution rule;
+- acceptance meaning of E1A/E1B/E2/E3/E5;
+- all other VS0 tasks;
+- canon;
+- gameplay;
+- persistence;
+- workflows;
+- repository configuration.
+
+### 36.8 Status
+
+- **E1A PASS — accepted, not rerun**
+- **E2 PASS — accepted, not rerun**
+- **E3 PASS — accepted, not rerun**
+- **E4B evidence captured and CLOSED**
+- **E4B acceptance pending E4A**
+- **E4A OUTSTANDING**
+- **E5 OUTSTANDING**
+- final report will record `main` SHA observed at report time
+- **T01 remains NOT ACCEPTED**
