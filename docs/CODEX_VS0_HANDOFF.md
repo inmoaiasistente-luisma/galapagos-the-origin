@@ -9,10 +9,14 @@
              A-04 (2026-09-13) — PR-enforcement semantics corrected. The guarantee is
              ASSOCIATION with a PR, not rejection of every push. T01R test E1 withdrawn,
              replaced by E1A/E1B. See spec §33 and ADR-002 §1.4.
-    TASK STATUS: VS0-T01 + VS0-T01R — ACCEPTED by Luisma, 2026-09-14. Phase-1 enforcement
-                 proven; T01R no longer blocks. Next: VS0-T02. See spec §37.
-                 VS0-T02 authority corrections and owner decisions (game version `0.1.0`,
-                 window not resizable in VS0): see spec §38.
+    TASK STATUS: ACCEPTED — VS0-T01, VS0-T01R, VS0-T02. Spec §39 is the acceptance ledger
+                 and is authoritative on task status. T01/T01R detail §37; T02 detail §38
+                 and §39.1 (owner decisions: game version `0.1.0`, window not resizable
+                 in VS0).
+                 NEXT: VS0-T03 — the last task blocking VS0-T04. Its packet was corrected
+                 in spec §40; read the VS0-T03 DIRECTORY MANIFEST in spec §23 and build
+                 from it, not from the §5 tree. §5 is the VS0 end-state SHAPE, not a T03
+                 file list.
     AUTHORITY LEVEL: 4 (operational handoff — subordinate to VS0_FOUNDATION_SPEC.md)
     FOR: Codex (implementation agent)
     SCOPE: VS0 only
@@ -87,7 +91,7 @@ Ten waves. Do not start a wave until the previous one is merged green.
 |---|---|---|
 | **A** | T01 Repository bootstrap | Repo, LFS, ignore rules, README, PR template. **No workflow file, no required status checks — deferred to T14 by owner decision.** **Files are on `main`. T01 was ACCEPTED by the owner on 2026-09-14, once T01R proved enforcement (spec §37).** |
 | **A′** | **T01R Enforcement remediation** | The Phase-1 **ruleset**, and **live proof** that direct push, force-push and deletion of `main` are rejected and that a PR merges with 0 approvals. **Blocked every later wave; COMPLETE and ACCEPTED 2026-09-14 — the block is discharged (spec §37).** |
-| **B** | T02 Godot baseline · T03 Folder skeleton | 4.7.2 pinned, pixel contract, folder tree |
+| **B** | T02 Godot baseline · T03 Folder skeleton | 4.7.2 pinned, pixel contract, folder tree. **T02 ACCEPTED 2026-09-14 (spec §39). T03 outstanding — directory topology and ownership markers, plus the two explicitly authorized exceptions in the binding §23 packet (one test file, one `.gitignore` line). Build from the §23 manifest; see spec §40.** |
 | **C** | T04 GUT | Headless test runner, gate 5 |
 | **D** | T05 Convention lint · T06 Layer lint · T07 Validator framework | Gates 1, 2, 3 (partial) |
 | **E** | T08 Canon Registry + generators | Gates 3, 4 complete |
