@@ -3,7 +3,11 @@
     STATUS: ACCEPTED — Luisma, 2026-09-12
     AUTHORITY LEVEL: 5 (approved technical architecture, once ACCEPTED)
     DATE: 2026-09-12
-    REVISION: v3 — engine version pinned to 4.7.2-stable (C-002 owner review, decision 2)
+    REVISION: v4 — §1 step 2 clarified: `project.godot` carries Godot's major.minor FEATURE TAG,
+                   not the full version string, and the CI workflow is written by T14. Measured
+                   against the pinned build. Owner-approved, VS0-T02 preflight, 2026-09-14
+                   (spec §38). NO DECISION CHANGED.
+              v3 — engine version pinned to 4.7.2-stable (C-002 owner review, decision 2)
               v2 — 480×270 superseded by 320×180 (Final Owner Decision 1)
     OWNER DECISIONS APPLIED: 2 (Engine), 3 (Renderer), Final 1 (Pixel Contract)
     CANON: Master Canon v1.1 — Technical baseline / Pixel contract
@@ -33,8 +37,12 @@ choice: it divides evenly into every common 16:9 display, which 480×270 did not
 **Pinning procedure — first task of VS0:**
 1. Godot **4.7.2-stable** is installed on the owner machine, with its **matching 4.7.2 export
    templates**.
-2. The exact version string is recorded in `docs/ENGINE.md`, `project.godot` and the CI workflow,
-   together with the download URL and a **SHA-256 checksum** for both editor and templates.
+2. The exact version string `4.7.2-stable` is recorded **verbatim in `docs/ENGINE.md`**, together
+   with the explicit official download URL and a **SHA-256 checksum** for both editor and templates.
+   In `project.godot` the version appears in Godot's own **feature-tag form** —
+   `config/features=PackedStringArray("4.7", …)`, **major.minor only** — because `4.7.2-stable` is
+   not a valid feature tag and must not be hand-authored there. The CI workflow records the exact
+   string when it is created by **T14, its sole owner**.
 3. **Codex and CI verify editor version == template version == 4.7.2 before any export.** On
    mismatch: stop and report. Do not export, do not substitute a nearby version.
 4. Verify that 4.7.2-stable boots the empty project headless on both the owner machine and the CI
