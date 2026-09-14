@@ -233,3 +233,5 @@ func _capture_after_render(capture_path: String) -> void:
 	)
 	if result != OK:
 		get_tree().quit(1)
+		return
+	get_tree().quit(0)

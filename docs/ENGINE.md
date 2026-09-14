@@ -81,12 +81,20 @@ All checks used Godot `4.7.2.stable.official.ed1daf0bf` with the Compatibility r
 
 The evidence images are local review artifacts and are not committed to the repository.
 
-During automated evidence capture, rapid windowed launches through the console wrapper
-intermittently returned Windows process code `0xC0000005` after a valid screenshot had already been
-written. The same plain calibration scene exhibited the teardown symptom, so it was not isolated to
-any renderer feature. Each required feature rendered the expected result and produced inspectable
-evidence. The pinned console executable's required headless boot remained clean with exit code `0`.
-This owner-machine driver/process-teardown finding does not block the locked pixel contract.
+During the initial automated evidence capture, the scripts saved each PNG but did not call
+`get_tree().quit(0)` on success; successful runs depended on external process termination. Some
+windowed processes returned Windows code `0xC0000005` after a valid screenshot had been written.
+The capture lifecycle was corrected so success explicitly calls `get_tree().quit(0)`, failure keeps
+`get_tree().quit(1)`, and ordinary interactive runs do not auto-exit. All seven required captures
+were then repeated. Exit codes were: `boot_1280x720.png = -1073741819 (0xC0000005)`,
+`boot_1366x768.png = 0`, `renderer_canvas_modulate.png = -1073741819 (0xC0000005)`,
+`renderer_light_occluder.png = 0`, `renderer_normal_map.png = 0`,
+`renderer_backbuffer_blend.png = -1073741819 (0xC0000005)`, and
+`renderer_screen_space.png = 0`. The symptom therefore remains unresolved after the clean-exit
+correction. Causal layer not determined. Every PNG was written successfully and the required
+rendering result is visible in its evidence image. The pinned console executable's required
+headless boot remained clean with exit code `0`; the finding does not block the locked pixel
+contract.
 
 ### Windowed calibration evidence
 

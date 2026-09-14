@@ -21,6 +21,7 @@ func _ready() -> void:
 	var requested_size: Vector2i = _parse_size_argument()
 	if requested_size != Vector2i.ZERO:
 		DisplayServer.window_set_flag(DisplayServer.WINDOW_FLAG_BORDERLESS, true)
+		DisplayServer.window_set_flag(DisplayServer.WINDOW_FLAG_ALWAYS_ON_TOP, true)
 		DisplayServer.window_set_size(requested_size)
 		DisplayServer.window_set_position(Vector2i.ZERO)
 		DisplayServer.window_move_to_foreground()
@@ -95,6 +96,7 @@ func _get_argument_value(prefix: String) -> String:
 func _capture_after_render(capture_path: String) -> void:
 	await get_tree().process_frame
 	await get_tree().process_frame
+	await get_tree().create_timer(0.5).timeout
 	await RenderingServer.frame_post_draw
 	var window_position: Vector2i = DisplayServer.window_get_position()
 	var window_size: Vector2i = DisplayServer.window_get_size()
@@ -129,3 +131,5 @@ func _capture_after_render(capture_path: String) -> void:
 	)
 	if result != OK:
 		get_tree().quit(1)
+		return
+	get_tree().quit(0)
