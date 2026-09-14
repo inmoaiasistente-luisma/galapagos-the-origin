@@ -342,10 +342,16 @@ Nearest is **`0`**. `stretch/mode`, `stretch/aspect`, `stretch/scale_mode` and `
 **Strings**, spelled exactly as in the table.
 
 **§6.3 is the mandatory minimum, not the exhaustive file.** Beyond it, T02 is authorized to write
-exactly three engine-required keys and no others: `config_version` (written by the engine),
-`application/config/features` (**Godot's feature-tag form** — see §6.1) and `application/config/icon`
-(pointing at `res://icon.svg`, T02's allowed path). Everything not listed in §6.2, §6.3 or this
-paragraph stays at its engine default, per §6.4.
+**exactly three additional T02-authorized project-file keys** and no others:
+
+- **`config_version`** — Godot **project-file format metadata**.
+- **`application/config/features`** — Godot **feature-tag metadata**, in the major.minor form (§6.1).
+- **`application/config/icon`** — **explicitly authorized T02 project metadata**, pointing at
+  `res://icon.svg`, which T02 owns. **It is not engine-required**: its engine default is the empty
+  string and Godot runs without it. It is authorized so that the icon asset T02 creates is actually
+  referenced.
+
+Everything not listed in §6.2, §6.3 or this paragraph stays at its engine default, per §6.4.
 
 **Letterbox/pillarbox background.** Black is asserted by the
 `rendering/environment/defaults/default_clear_color` row above. **The engine default is mid grey, so
@@ -2534,13 +2540,16 @@ The next task in merge order is **VS0-T02** (§26 row 2).
     ORIGIN: VS0-T02 authority preflight — nine contradictions found in the T02 packet and §6
             before implementation began
     DECIDED BY: Luisma (owner), 2026-09-14
-    CHANGES NO DECISION. The engine pin, renderer, resolution, tile size, pixel contract, canon,
-    gameplay, persistence architecture and repository enforcement are all untouched.
+    CHANGES NO PRIOR DECISION. Records two new owner decisions required to close T02 authority
+    gaps; no previously accepted decision is reversed. The engine pin, renderer, resolution,
+    tile size, pixel contract, canon, gameplay, persistence architecture and repository
+    enforcement are all untouched.
 
 ### 38.1 Why this is a correction record, not an amendment
 
-Every item below either **records a value the owner decided**, or **corrects a statement that
-measurement showed to be false**. None changes a rule. The same reasoning as §37.4 applies.
+**No previously accepted rule or decision is reversed.** Two previously **undefined** values are
+supplied by **new owner decisions** (§38.2); the remaining items **correct false or ambiguous
+implementation statements**. The same reasoning as §37.4 applies.
 
 ### 38.2 Owner decisions
 
@@ -2564,7 +2573,7 @@ assumed.
 | **D5** | T02's *Persistence impact* said it sets `application/config/version`; **no accepted document defined a value**, and the engine default is the empty string — every save file T11 ever wrote would have carried `"game_version": ""`. | Owner decision 1: `0.1.0`. |
 | **D6** | §6.1 claimed `4.7.2-stable` is recorded **verbatim** in `project.godot` (`config/features`). **Measured: Godot writes `PackedStringArray("4.7", "GL Compatibility")` — major.minor only.** `4.7.2-stable` is not a valid feature tag. | §6.1 and ADR-001 §1 step 2 corrected. `docs/ENGINE.md` is the verbatim record; `project.godot` carries the feature-tag form. |
 | **D7** | §6.3 gave semantic names without serialized representations. **Measured: `default_texture_filter` is an int enum where Nearest is `0` and the default is `1` (Linear);** the stretch and renderer keys are Strings. | Mapping documented in §6.3. The decision is unchanged — only its representation is now stated. |
-| **D8** | §6.3 was not marked exhaustive or minimum, while `config_version`, `config/features` and `config/icon` are unavoidable and unlisted — so Codex would violate §6.4 by writing them and ship a broken project by omitting them. | §6.3 declared the **mandatory minimum**, with exactly three named engine-required keys authorized. |
+| **D8** | §6.3 did not state whether **project-file metadata outside its mandatory `ProjectSettings` table** was authorized at all. T02 needs explicit authority for `config_version` and `application/config/features`, and it already owns `/icon.svg`, so `application/config/icon` must be explicitly authorized if the project is to reference that asset. | §6.3 declared the **mandatory minimum**, and **names exactly these three T02-authorized project-file keys, authorizing no others.** `application/config/icon` is **not** classified as engine-required. |
 | **D9** | T02 required every §6 setting "verbatim". **Measured: `display/window/stretch/aspect = "keep"` equals the engine default and is therefore elided from `project.godot` entirely**, while `ProjectSettings.get_setting()` still returns `keep`. | The contract is on the **effective `ProjectSettings` value**, not the file's bytes. Reviewers diffing `project.godot` must expect `aspect` to be absent. |
 
 ### 38.4 Phase ownership, stated once
