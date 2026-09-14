@@ -23,6 +23,8 @@
                 A-07 (2026-09-13) — MICRO. Post-merge SHA semantics: T01R final reporting
                 records the main SHA observed at report time; no fixed-SHA equality. E4
                 condition 3 restated temporally. §35 preserved, annotated. See §36.
+    TASK STATUS: VS0-T01 + VS0-T01R — ACCEPTED by Luisma, 2026-09-14. Phase-1 enforcement
+                 proven. Status record, not an amendment. See §37.
     DERIVES FROM: Master Canon v1.1 (ACCEPTED) · ADR-001 … ADR-008 (ACCEPTED) ·
                   ARCHITECTURE.md · CONVENTIONS.md · STATE_OWNERSHIP.md ·
                   CANON_CONFLICT_RESOLUTION.md (all ACCEPTED)
@@ -281,7 +283,7 @@ editor first.
 |---|---|
 | Engine | **Godot 4.7.2-stable**, standard build. **No .NET / no C#.** |
 | Pre-release | **Godot 4.8 development and pre-release builds are NOT authorized.** |
-| Exact version | `4.7.2-stable`, recorded verbatim in `docs/ENGINE.md`, `project.godot` (`config/features`) and `.github/workflows/ci.yml`. Codex never chooses it and never rounds it. |
+| Exact version | **`4.7.2-stable`**, recorded **verbatim in `docs/ENGINE.md`** — editor and export templates, with SHA-256 checksums and the explicit official download URL (**T02**). In `project.godot` the version appears in Godot's own **feature-tag form**, `config/features=PackedStringArray("4.7", …)` — **the engine writes major.minor only; `4.7.2-stable` is not a valid feature tag and must not be hand-authored there** (T02). In `.github/workflows/ci.yml` the exact string is recorded by **T14, the sole owner of `/.github/workflows/**`** — **T02 neither creates nor edits CI.** Codex never chooses the version and never rounds it. |
 | Export templates | **Godot 4.7.2, exactly equal to the editor version.** |
 | **Version verification** | Codex **and** CI verify `editor version == template version == 4.7.2` **before any export**. On mismatch: **stop and report.** Do not export, do not substitute. |
 | CI acquisition | CI downloads the pinned editor and templates from an **explicit official release URL**, verifies **SHA-256** against `docs/ENGINE.md`, and caches by version. **No `latest` URL. No floating version.** |
@@ -316,20 +318,53 @@ is never worked around silently.
 | `display/window/size/viewport_height` | `180` |
 | `display/window/size/window_width_override` | `1280` |
 | `display/window/size/window_height_override` | `720` |
+| `display/window/size/resizable` | `false` — the VS0 calibration window is fixed at `1280 × 720` (×4). See the *Window resizing* note below. |
 | `display/window/stretch/mode` | `canvas_items` |
 | `display/window/stretch/aspect` | `keep` |
 | `display/window/stretch/scale_mode` | `integer` |
-| `rendering/textures/canvas_textures/default_texture_filter` | `Nearest` |
+| `rendering/textures/canvas_textures/default_texture_filter` | `Nearest` — **stored as the integer `0`**; the engine default is `1` (Linear) |
 | `rendering/2d/snap/snap_2d_transforms_to_pixel` | `true` |
 | `rendering/2d/snap/snap_2d_vertices_to_pixel` | `true` |
+| `rendering/environment/defaults/default_clear_color` | `Color(0, 0, 0, 1)` — the approved black letterbox/pillarbox background (ADR-001 §3). **The engine default is mid grey `Color(0.3, 0.3, 0.3, 1)`.** |
 | `application/config/name` | `Galapagos The Origin` |
+| `application/config/version` | `0.1.0` — read by T11 as `game_version`. **Semantic Versioning**; `0.1.0` is the VS0 foundation / pre-release stage and does **not** imply Volume I is production complete. `save_version` stays independent of it (ADR-005). |
 | `application/run/main_scene` | `res://presentation/boot/boot.tscn` |
 
 **Verified by test, not by inspection.** A canon test asserts each of these values by reading
 `ProjectSettings`. A test — not a checklist item someone ticks.
 
-**Also asserted by the same test:** the window is not resizable below one integer scale, and the
-letterbox/pillarbox background is the approved black.
+**Serialized representation.** The contract is on the **effective `ProjectSettings` value**, not on
+the bytes of `project.godot`. Godot omits any setting whose value equals the engine default, so
+`display/window/stretch/aspect` — required `keep`, engine default `keep` — **will not appear in the
+file**, while `ProjectSettings.get_setting()` still returns `keep`. Where the semantic name and the
+stored value differ, **the stored value governs**: `default_texture_filter` is an integer enum and
+Nearest is **`0`**. `stretch/mode`, `stretch/aspect`, `stretch/scale_mode` and `rendering_method` are
+**Strings**, spelled exactly as in the table.
+
+**§6.3 is the mandatory minimum, not the exhaustive file.** Beyond it, T02 is authorized to write
+**exactly three additional T02-authorized project-file keys** and no others:
+
+- **`config_version`** — Godot **project-file format metadata**.
+- **`application/config/features`** — Godot **feature-tag metadata**, in the major.minor form (§6.1).
+- **`application/config/icon`** — **explicitly authorized T02 project metadata**, pointing at
+  `res://icon.svg`, which T02 owns. **It is not engine-required**: its engine default is the empty
+  string and Godot runs without it. It is authorized so that the icon asset T02 creates is actually
+  referenced.
+
+Everything not listed in §6.2, §6.3 or this paragraph stays at its engine default, per §6.4.
+
+**Letterbox/pillarbox background.** Black is asserted by the
+`rendering/environment/defaults/default_clear_color` row above. **The engine default is mid grey, so
+this must be set explicitly and must never be left to the default.** The `1366 × 768` evidence
+screenshot is the behavioural confirmation; if the bars render non-black with this value set, **that
+is reported under the §23 stop conditions, not worked around.**
+
+**Window resizing.** Godot 4.7.2 has **no minimum-window-size project setting** — verified against the
+pinned build's full property list. The only `ProjectSettings`-expressible control is
+`display/window/size/resizable`, which VS0 sets to `false`; `Window.min_size` and
+`DisplayServer.window_set_min_size()` exist but are **runtime API** and are not assertable by a
+`ProjectSettings`-reading test. **This is a VS0 technical-baseline decision** (owner, 2026-09-14) and
+does not prohibit a later owner-approved task from adding fullscreen or window-size options.
 
 ### 6.4 Settings that are deliberately NOT configured in VS0
 
@@ -1083,6 +1118,10 @@ conditions are additions, never replacements.
 > dump and are now known to be false**. They are re-proven by **VS0-T01R**, and T01 is accepted only
 > when T01R passes. **T01 is not re-implemented and its history is not rewritten.**
 
+> **⚠ SUPERSEDED BY §37 (2026-09-14).** The A-03 status above is **preserved as history**. **T01R
+> passed and VS0-T01 was ACCEPTED by the owner on 2026-09-14**, which is exactly the condition the
+> paragraph above names. **§37 is authoritative on task status.**
+
 | Field | Content |
 |---|---|
 | **Objective** | Create the **public** repository, Phase-1 branch protection, ignore/attribute files, README and PR template. **No Godot content. No CI workflow. No required status checks.** |
@@ -1110,18 +1149,19 @@ conditions are additions, never replacements.
 |---|---|
 | **Objective** | Install the Phase-1 **repository ruleset** (ADR-002 §1.3) and **prove** — by observed rejection wherever the platform permits it, and by API readback only where it does not (§35) — that an **unassociated** push and a force-push to `main` are refused, that deletion of `main` is protected, and that a PR merges with **0** approving reviews. |
 | **Required reading** | **ADR-002 §1.3** (the incident and the exact ruleset) · §16.2 of this document · **§32** · `CONVENTIONS.md` §5 |
-| **Dependencies** | VS0-T01 content is on `main` (it already is). **Blocks every other VS0 task**: nothing else merges until enforcement is proven. |
+| **Dependencies** | VS0-T01 content is on `main` (it already is). **Blocks every other VS0 task**: nothing else merges until enforcement is proven. **DISCHARGED 2026-09-14 — enforcement is proven and accepted (§37).** |
 | **Allowed paths** | `/README.md` — **one line only**, recording the enforcement mechanism. Nothing else. |
 | **Forbidden paths** | `/.github/workflows/**` *(T14)* · `/docs/**` *(Claude and Luisma only)* · every other path |
 | **Branch** | `feature/VS0-T01R-enforcement-verification` |
 | **Implementation requirements** | **(a)** A repository ruleset exists exactly as specified in ADR-002 §1.3 — `enforcement: "active"`, target `refs/heads/main`, rules `pull_request` (`required_approving_review_count: 0`), `non_fast_forward`, `deletion`, and **`bypass_actors: []`**. **(b)** A single harmless, authorised line is added to `README.md` recording that `main` is enforced by a repository ruleset and pointing at ADR-002 §1.3 — this is the change that travels through the proof, and it is real content rather than a throwaway. **(c)** Each acceptance test below is executed **from the owner/admin account**, because that is the account whose push was wrongly accepted. **Tests already recorded as PASS in the accepted-results row above are not rerun.** **(d)** Verbatim command output is captured for each. |
 | **Tests** | The acceptance tests are the deliverable. There is no code to unit-test. |
 | **Results already accepted (A-06, 2026-09-13)** | **E1A = PASS · E2 = PASS · E3 = PASS.** These are **accepted and must not be rerun.** Outstanding: **E4A** (API proof) · **E4B** (rejection output already captured — retain it; acceptance outstanding) · **E5** final readback. Then complete T01R reporting. **Final reporting records the current `main` SHA observed at final-report time.** No equality with the historical E4B SHA is required; authorized pull-request merges legitimately advance `main` (§36). |
+| **Final status (2026-09-14)** | **ACCEPTED — Luisma. E1A · E2 · E3 · E4A · E4B · the E4 conjunction · E5 all PASS.** `main` observed at `37b056fe` at final-report time (§36.6). See **§37**. **T01R no longer blocks.** |
 | **Acceptance criteria** | **A-03's E1 is WITHDRAWN as invalid** (A-04, §33): the commit it pushed was by construction the head of an open PR, so the rule treats it as associated and accepts it. It is replaced by E1A and E1B.<br><br>**E1A — unassociated direct push rejected.** Create a fresh disposable commit on a branch with **no open PR targeting `main`**, containing only an explicitly authorized harmless verification change. `git push origin <unassociated-commit>:main` must be **REJECTED — not associated with a pull request**; verbatim stderr captured. **If it is accepted, STOP: the `pull_request` rule is not enforcing its documented property.**<br>**E1B — associated-commit semantics, recorded not tested.** Document that a commit already the head of an open PR **may be accepted** when pushed directly under the `pull_request` rule. This is **not** a bypass failure — GitHub considers the change associated. **Project process still forbids it, and Codex must never use that path intentionally.**<br>**E2 — normal PR path.** A fresh authorized verification commit on a feature branch, opened as a PR and merged through GitHub's **normal merge operation** with `required approvals = 0`. **ACCEPTED. No `--admin`. No bypass.**<br>**E2 evidence must record `PR number` · `headRefOid` · `mergeCommit` · `reviewDecision` · the merge method/operation used, and acceptance requires `headRefOid != mergeCommit`** (A-05, §34). A PR reporting `MERGED` is **not** sufficient: PR #1 and PR #3 both report `MERGED` and neither was merged.<br>**E3 — force push rejected.** A non-fast-forward update to `main` is **REJECTED by `non_fast_forward`**; stderr captured.<br>**E4A — deletion rule proven by API.** The active `main-phase1` ruleset, read from the GitHub API, **targets `refs/heads/main`** · **contains a `deletion` rule** · **`enforcement: "active"`** · **`bypass_actors: []`**; raw JSON captured.<br>**E4B — deletion behaviourally rejected.** `git push origin --delete main` is **rejected**; verbatim stderr captured. **`main` is the default branch, so GitHub's default-branch safeguard may reject the deletion before the ruleset produces a distinguishable error. The absence of a ruleset-specific `GH013` message MUST NOT fail T01R** (A-06, §35).<br>**Deletion protection is accepted on the conjunction of all four:** (1) an active `deletion` rule proven by API readback · (2) deletion of `main` behaviourally rejected · (3) **the E4B evidence proves that immediately after the deletion attempt, `main` still existed at the same SHA observed immediately before the attempt** · (4) no bypass actor exists. **Do not claim the behavioural rejection proves which layer fired.**<br>**E5 — ruleset readback.** `enforcement = active` · `bypass_actors = []` · target `refs/heads/main` · `pull_request` present · `non_fast_forward` present · `deletion` present; raw JSON captured with the ruleset id.<br><br>**E1A, E2, E3, the E4A + E4B deletion-protection conjunction (the composite result recorded as E4), and E5 must all pass. E1A failing to fail is a hard stop.** |
 | **Persistence impact** | None |
 | **Canon impact** | None |
 | **Evidence** | Attached to the PR by hand (CI does not exist until T14): `t01r_e1a_unassociated_push_rejected.txt` · `t01r_e2_pr_merge.txt` · `t01r_e3_force_push_rejected.txt` · `t01r_e4a_deletion_rule.json` · `t01r_e4b_delete_rejected.txt` · `t01r_e5_ruleset.json`. **Verbatim output. Not a summary, not a screenshot of a settings page.** E1B produces no evidence file — it is a recorded semantic, not a test.<br><br>**`t01r_e2_pr_merge.txt` must contain all five fields** — `PR number`, `headRefOid`, `mergeCommit`, `reviewDecision`, merge method/operation — **and show `headRefOid != mergeCommit`** (§34). |
-| **Parallelization** | **Blocks everything.** Nothing runs beside it, and nothing merges until it passes. |
+| **Parallelization** | **Blocks everything.** Nothing runs beside it, and nothing merges until it passes. **DISCHARGED 2026-09-14 — it passed (§37). VS0-T02 is next (§26 row 2).** |
 | **Stop conditions** | Any test that does not produce the expected outcome — especially **E1A failing to be rejected**, or **E2 failing to merge**. · The ruleset cannot be created with an empty `bypass_actors` on the current plan. · A legitimate PR merge is blocked by an approval requirement — suspect `require_extra_approval_for_unattributed_changes` (ADR-002 §1.4) and **report; do not work around it**. · Remediation would require reverting `46f76ff` or `0ca3206`, rewriting history, force-pushing, or deleting a branch — **none is authorized (§32, §33).** · The fix would require adding a bypass actor, or the **Restrict updates** rule — **neither is authorized; report instead.** |
 | **Explicitly forbidden** | Reverting `46f76ffbe2518884c2c5783415bdf446664b637f` or `0ca3206e77e59e421705f9e55ed9dbbeab87959f` · rewriting history · force-pushing anything · re-opening or re-creating PR #1 or PR #3 · re-implementing the four T01 files · adding a bypass actor · **adding the `update` (Restrict updates) rule** · pushing a PR-head commit directly to `main` even though GitHub would accept it · configuring required status checks (T14) |
 
@@ -1134,13 +1174,15 @@ conditions are additions, never replacements.
 | **Objective** | Pin the engine, configure the renderer and the 320 × 180 pixel contract, and prove both by test and by screenshot. |
 | **Required reading** | ADR-001 (all) · Master Canon — *Technical baseline / Pixel contract* · `ARCHITECTURE.md` §6 · §6 of this document |
 | **Dependencies** | VS0-T01. **Fixed inputs:** Godot **4.7.2-stable** + matching **4.7.2** export templates, installed on the owner machine. |
-| **Allowed paths** | `/project.godot` `/docs/ENGINE.md` `/icon.svg` `/presentation/boot/**` |
-| **Forbidden paths** | `core/**` `systems/**` `data/**` `tools/**` `addons/**` |
-| **Implementation requirements** | Every setting in §6.2 and §6.3, verbatim · `docs/ENGINE.md` recording **`4.7.2-stable`** for editor and templates, SHA-256 checksums and the explicit download URL (no `latest`) · the renderer feature matrix (§6.2) executed and recorded with PASS/FAIL and screenshots · a placeholder `boot.tscn` that renders a 320 × 180 test pattern (pixel grid, 16 × 16 tile guides, a 16 × 24 player-size reference) · **no autoloads registered yet** |
-| **Tests** | `tests/canon/test_project_settings.gd` asserting **every** value in §6.2 and §6.3 by reading `ProjectSettings`. *(Written here; executed once GUT lands in T04. The test file is committed by this task.)* |
+| **Allowed paths** | `/project.godot` `/docs/ENGINE.md` `/icon.svg` `/presentation/boot/**` · **`/tests/canon/test_project_settings.gd`** *(single-file exception to T04's ownership of `/tests/**` — see §25)* |
+| **Forbidden paths** | `core/**` `systems/**` `data/**` `tools/**` `addons/**` · `/tests/**` *(T04 — except the one file named above)* · `/.github/workflows/**` *(T14, sole owner)* · `/tools/evidence/**` *(T15)* · `/docs/**` *(except `ENGINE.md`)* |
+| **Branch** | `feature/VS0-T02-godot-baseline` (`CONVENTIONS.md` §5) |
+| **Implementation requirements** | Every setting in §6.2 and §6.3, as the **effective `ProjectSettings` value** — see the *Serialized representation* note in §6.3; a value equal to the engine default is legitimately absent from the file · `docs/ENGINE.md` **appended to** (not owned outright — T04 and T14 add their own sections, §25), recording **`4.7.2-stable`** for editor and templates, SHA-256 checksums of the artifacts **actually used**, and the explicit official download URL (no `latest`) · **T02 creates no CI workflow** (§6.1; `/.github/workflows/**` is T14's) · the renderer feature matrix (§6.2) executed and recorded with PASS/FAIL and screenshots · a placeholder `boot.tscn` that renders a 320 × 180 test pattern (pixel grid, 16 × 16 tile guides, a 16 × 24 player-size reference alongside the 16 × 32 tall pose) — **a technical calibration scene, not a vertical slice: no gameplay, no Tikawi, no camera logic, no canon content** · **no autoloads registered yet** |
+| **Tests** | `tests/canon/test_project_settings.gd` asserting **every** value in §6.2 and §6.3 by reading `ProjectSettings`. *(Written here; executed once GUT lands in T04. The test file is committed by this task — it is the single-file exception in Allowed paths.)* **It cannot run in T02, and Codex must not report it as passing.** The PR states plainly: written, committed, **not yet executable**. |
 | **Acceptance criteria** | Project boots headless on the owner machine and exits `0` · `docs/ENGINE.md` complete with checksums · evidence screenshots at `1280×720` (exact fill) and `1366×768` (centred with letterbox) attached · every renderer feature recorded PASS or FAIL with evidence |
-| **Persistence impact** | **None.** Nothing in this task is persisted. `game_version` is read from `application/config/version` at save time (T11) — this task sets that value. |
-| **Stop conditions** | The installed editor is not `4.7.2-stable` · editor and template versions differ · a 4.8 pre-release build is present and would be used · a §6.3 setting cannot be expressed in `project.godot` · a renderer feature fails **and** the failure blocks the pixel contract (a non-blocking FAIL is recorded, not a stop) |
+| **Evidence** | Attached to the PR **by hand** — CI does not exist until T14 and `evidence/` is gitignored. **T02 does not write `tools/evidence/**`** (T15 owns the capture tooling). Artifacts: `t02_version.txt` · `t02_checksums.txt` · `t02_headless_boot.txt` · `boot_1280x720.png` · `boot_1366x768.png` · one screenshot per §6.2 renderer feature. **Verbatim output, not summaries.** |
+| **Persistence impact** | **None.** Nothing in this task is persisted. `game_version` is read from `application/config/version` at save time (T11) — **this task sets that value to `0.1.0`** (§6.3, owner decision 2026-09-14). |
+| **Stop conditions** | The installed editor is not `4.7.2-stable` · editor and template versions differ · a 4.8 pre-release build is present and would be used · a §6.3 value cannot be expressed as a `ProjectSettings` key in the pinned build · a renderer feature fails **and** the failure blocks the pixel contract (a non-blocking FAIL is recorded, not a stop) · the `1366 × 768` letterbox renders non-black with `default_clear_color = Color(0, 0, 0, 1)` set — **report, do not work around** · any required change falls outside the allowed paths |
 | **Parallelization** | Parallel-safe with VS0-T03 |
 
 ---
@@ -1171,7 +1213,7 @@ conditions are additions, never replacements.
 | **Dependencies** | VS0-T02, VS0-T03 |
 | **Allowed paths** | `/addons/gut/**` `/tests/**` `/tools/test/**` `/docs/ENGINE.md` |
 | **Forbidden paths** | `core/**` `systems/**` `presentation/**` `data/**` |
-| **Implementation requirements** | Select the GUT release **by the rule in §14** — matching Godot **4.7**, highest qualifying patch — and record it in `docs/ENGINE.md` with a checksum · vendor it committed, with **no network access at build or run time** · a headless runner script producing JUnit XML · the test directories from §14 · run the tests committed by T02 and T03 |
+| **Implementation requirements** | Select the GUT release **by the rule in §14** — matching Godot **4.7**, highest qualifying patch — and record it in `docs/ENGINE.md` with a checksum · vendor it committed, with **no network access at build or run time** · a headless runner script producing JUnit XML · the test directories from §14 · run the tests committed by T02 and T03 — **`tests/canon/test_project_settings.gd` already exists on `main` from T02: T04 wires it into the runner and executes it, and does not rewrite it** |
 | **Tests** | A self-test asserting the runner reports a **deliberately failing** test as a failure and returns non-zero. A runner that can only report success is not a runner. |
 | **Acceptance criteria** | Headless run produces JUnit XML and a correct exit code · T02 and T03 tests pass · the deliberate-failure self-test proves failures are detected · GUT version and checksum recorded |
 | **Persistence impact** | None |
@@ -1445,7 +1487,7 @@ Each wave is safe to run concurrently, **one writing agent per git worktree**, w
 | Wave | Tasks | Path overlap | Notes |
 |---|---|---|---|
 | A | **T01** | — | Alone |
-| **A′** | **T01R** | `README.md`, one line | **Alone. Blocks every later wave** — no task merges until PR-only enforcement is proven by live rejection |
+| **A′** | **T01R** | `README.md`, one line | **Alone. Blocked every later wave** — no task merged until PR-only enforcement was proven by live rejection. **COMPLETE and ACCEPTED 2026-09-14 (§37); the block is discharged.** |
 | B | **T02**, **T03** | None — T02 owns `project.godot` and `docs/ENGINE.md`; T03 owns folder markers only | Safe |
 | C | **T04** | — | Alone; establishes the test runner |
 | D | **T05**, **T06**, **T07** | None — three disjoint file sets under `tools/` | **The widest parallel wave in VS0** |
@@ -1464,6 +1506,7 @@ Each wave is safe to run concurrently, **one writing agent per git worktree**, w
 | `tools/generators/generate_all.gd` | T08, T09, T13 | **Discovery by file scan** (§23). T09 and T13 add a generator file and register nothing. |
 | `tools/validators/validate_all.gd` | T07, T08, T12 | Same discovery mechanism, ordered by stage constant. |
 | `docs/ENGINE.md` | T02, T04, T14 | Sequenced across three waves; each appends its own section. |
+| `tests/canon/test_project_settings.gd` | T02, T04 | **T02 writes it** (unexecutable until GUT lands); **T04 runs it.** Different waves, disjoint operations — the single authorized exception to T04's ownership of `/tests/**`. |
 
 > The point of the two discovery mechanisms is small and worth stating plainly: **a registration list
 > in a shared file is a merge conflict generator and a coordination tax on every future task.** File
@@ -1479,7 +1522,7 @@ throughout — the property that makes every later bisect meaningful.
 | # | PR | Gate green at merge |
 |---|---|---|
 | 1 | T01 Repository bootstrap | — (files only. **Enforcement unproven — see row 1R**) |
-| **1R** | **T01R Enforcement remediation** | **Phase-1 enforcement proven live: E1A unassociated push rejected · E2 PR merged with 0 approvals (`headRefOid != mergeCommit`) · E3 force-push rejected · E4A + E4B deletion protection · E5 `bypass_actors: []`** |
+| **1R** | **T01R Enforcement remediation** | **Phase-1 enforcement proven live: E1A unassociated push rejected · E2 PR merged with 0 approvals (`headRefOid != mergeCommit`) · E3 force-push rejected · E4A + E4B deletion protection · E5 `bypass_actors: []`** — **PROVEN AND ACCEPTED 2026-09-14 (§37)** |
 | 2 | T02 Godot baseline | Project boots headless |
 | 3 | T03 Folder skeleton | Folder contract test |
 | 4 | T04 GUT | Gate 5 live |
@@ -2416,3 +2459,150 @@ Unchanged:
 - **E5 OUTSTANDING**
 - final report will record `main` SHA observed at report time
 - **T01 remains NOT ACCEPTED**
+
+> **⚠ SUPERSEDED BY §37 (2026-09-14).** The bullet **"T01 remains NOT ACCEPTED"** was true when A-07
+> merged, before E4A and E5 had run. **VS0-T01 and VS0-T01R were accepted by the owner on
+> 2026-09-14 — see §37.** The A-07 text above is preserved unchanged as history. **§36's SHA
+> semantics remain live and unchanged.**
+
+---
+
+## 37. VS0-T01 / VS0-T01R — final owner acceptance record
+
+    TYPE: STATUS RECORD. This is NOT an amendment.
+    DATE: 2026-09-14
+    DECIDED BY: Luisma (owner), on the independent acceptance review of 2026-09-14
+    CHANGES NO RULE. No new criterion, no new evidence class, no new concept.
+
+### 37.1 Decision
+
+> **VS0-T01 is ACCEPTED. VS0-T01R is ACCEPTED. Phase-1 enforcement is proven.**
+
+### 37.2 Accepted results
+
+| Test | Result |
+|---|---|
+| **E1A** — unassociated direct push rejected | **PASS** |
+| **E1B** — associated-commit semantics | **Recorded** — a semantic, not a test |
+| **E2** — merged by GitHub's PR operation, 0 approvals | **PASS** — PR #6, `headRefOid add34035…` ≠ `mergeCommit 679fabfd…` |
+| **E3** — force-push rejected | **PASS** |
+| **E4A** — `deletion` rule proven by API readback | **PASS** |
+| **E4B** — deletion of `main` behaviourally rejected | **PASS** |
+| **E4** — four-part deletion-protection conjunction | **PASS** |
+| **E5** — final ruleset readback | **PASS** |
+
+`main` SHA observed at final-report time: **`37b056fe`**. Per §36.6 this is a **recorded observation,
+not a requirement**; authorized pull-request merges legitimately advance `main`.
+
+Ruleset `main-phase1`, id `23190427`, as read back at acceptance: `enforcement: "active"` · target
+`refs/heads/main` · `pull_request` with `required_approving_review_count: 0` · `non_fast_forward` ·
+`deletion` · **`bypass_actors: []`**.
+
+**No claim is made about which protection layer rejected E4B** (§35.3, §36.5).
+
+### 37.3 What this record supersedes
+
+**§36.8's final bullet — "T01 remains NOT ACCEPTED" — was true when A-07 merged**, before E4A and E5
+had run. It is **preserved unchanged as history** and is **superseded by this section**.
+
+The same applies to **every dated status statement written before 2026-09-14**: the A-03 status
+blockquote on the §23 T01 packet · **"VS0-T01: NOT ACCEPTED"** in **§32** and **§33** · the
+outstanding-test table in **§35.5** · the status list in **§36.8**. All are **preserved unchanged as
+the record of what was true when each amendment merged.**
+
+> **Where any of them differs from this section, §37 is authoritative on task status.** No amendment
+> loses any other authority: **§32–§36 remain authoritative on the enforcement model, on A-04's
+> semantics, on E4's four-part conjunction and on SHA semantics**, all unchanged.
+
+The blocking constraints that T01R carried — its *Dependencies* and *Parallelization* rows, and row
+**A′** of §25 — are **discharged**, and each is annotated in place.
+
+### 37.4 Why this is not an amendment
+
+A-01 … A-07 each changed a rule, a criterion or a semantic. This record changes none: it states that
+an existing, unchanged criterion was met and that the owner accepted the result. §22 condition 13
+requires an owner decision to be **written into this document** before Codex may rely on it; it does
+not require an amendment identifier. Minting one for a task status would turn the amendment record
+into a task ledger, and the two must stay separable — the amendment record is what a future reader
+consults to learn **what the rules are and why**.
+
+### 37.5 Consequence
+
+**VS0-T01R no longer blocks.** Its *"Blocks everything"* parallelization constraint is discharged.
+The next task in merge order is **VS0-T02** (§26 row 2).
+
+---
+
+## 38. VS0-T02 preflight — owner decisions and authority corrections
+
+    TYPE: AUTHORITY CORRECTION RECORD. This is NOT an amendment.
+    DATE: 2026-09-14
+    ORIGIN: VS0-T02 authority preflight — nine contradictions found in the T02 packet and §6
+            before implementation began
+    DECIDED BY: Luisma (owner), 2026-09-14
+    CHANGES NO PRIOR DECISION. Records two new owner decisions required to close T02 authority
+    gaps; no previously accepted decision is reversed. The engine pin, renderer, resolution,
+    tile size, pixel contract, canon, gameplay, persistence architecture and repository
+    enforcement are all untouched.
+
+### 38.1 Why this is a correction record, not an amendment
+
+**No previously accepted rule or decision is reversed.** Two previously **undefined** values are
+supplied by **new owner decisions** (§38.2); the remaining items **correct false or ambiguous
+implementation statements**. The same reasoning as §37.4 applies.
+
+### 38.2 Owner decisions
+
+| # | Decision |
+|---|---|
+| **1** | **`application/config/version = "0.1.0"`.** The project adopts **Semantic Versioning** for `game_version`. `0.1.0` is the VS0 foundation / pre-release stage and does **not** imply Volume I is production complete. `save_version` remains **independent** of `game_version` (ADR-005). |
+| **2** | **`display/window/size/resizable = false`** for VS0. The calibration window is fixed at **`1280 × 720`**, gameplay viewport **`320 × 180`** at exact integer scale **×4**. A VS0 technical-baseline decision; it does **not** prohibit a later owner-approved task from adding fullscreen or window-size options. |
+
+### 38.3 Corrections, and the measurement behind each
+
+All Godot behaviour below was **measured against the pinned build**
+(`4.7.2.stable.official.ed1daf0bf`), headless, in a throwaway project. Nothing was recalled or
+assumed.
+
+| # | Contradiction | Correction |
+|---|---|---|
+| **D1** | T02's *Tests* row required committing `tests/canon/test_project_settings.gd`; its *Allowed paths* excluded it, and §23 T04 owns `/tests/**`. | Exactly that **one file** added to T02's Allowed paths. **`/tests/**` is not broadened.** T04 runs it without rewriting it (§25). |
+| **D2** | §6.1 required the version recorded in `.github/workflows/ci.yml`, which T14 **solely** owns and which does not exist. | §6.1 row split by owner. **T02 creates no CI.** |
+| **D3** | §6.3 required the test to assert "the window is not resizable below one integer scale". **Godot 4.7.2 has no minimum-window-size project setting** — the full `display/window/**` property list contains none. `Window.min_size` exists but is runtime API and is not assertable by a `ProjectSettings` test. | Owner decision 2: `display/window/size/resizable = false`, which makes the sub-integer case impossible and is assertable by one boolean. |
+| **D4** | §6.3 required the test to assert "the letterbox/pillarbox background is the approved black", with no key. **The engine default for `rendering/environment/defaults/default_clear_color` is mid grey `Color(0.3, 0.3, 0.3, 1)`** — relying on it would have produced grey bars. | Explicit row: `Color(0, 0, 0, 1)`, the first option already named in ADR-001 §3. The `1366 × 768` screenshot is the behavioural confirmation. |
+| **D5** | T02's *Persistence impact* said it sets `application/config/version`; **no accepted document defined a value**, and the engine default is the empty string — every save file T11 ever wrote would have carried `"game_version": ""`. | Owner decision 1: `0.1.0`. |
+| **D6** | §6.1 claimed `4.7.2-stable` is recorded **verbatim** in `project.godot` (`config/features`). **Measured: Godot writes `PackedStringArray("4.7", "GL Compatibility")` — major.minor only.** `4.7.2-stable` is not a valid feature tag. | §6.1 and ADR-001 §1 step 2 corrected. `docs/ENGINE.md` is the verbatim record; `project.godot` carries the feature-tag form. |
+| **D7** | §6.3 gave semantic names without serialized representations. **Measured: `default_texture_filter` is an int enum where Nearest is `0` and the default is `1` (Linear);** the stretch and renderer keys are Strings. | Mapping documented in §6.3. The decision is unchanged — only its representation is now stated. |
+| **D8** | §6.3 did not state whether **project-file metadata outside its mandatory `ProjectSettings` table** was authorized at all. T02 needs explicit authority for `config_version` and `application/config/features`, and it already owns `/icon.svg`, so `application/config/icon` must be explicitly authorized if the project is to reference that asset. | §6.3 declared the **mandatory minimum**, and **names exactly these three T02-authorized project-file keys, authorizing no others.** `application/config/icon` is **not** classified as engine-required. |
+| **D9** | T02 required every §6 setting "verbatim". **Measured: `display/window/stretch/aspect = "keep"` equals the engine default and is therefore elided from `project.godot` entirely**, while `ProjectSettings.get_setting()` still returns `keep`. | The contract is on the **effective `ProjectSettings` value**, not the file's bytes. Reviewers diffing `project.godot` must expect `aspect` to be absent. |
+
+### 38.4 Phase ownership, stated once
+
+| Artifact | Sole owner | T02's relationship |
+|---|---|---|
+| `/.github/workflows/**` | **T14** | forbidden — creates nothing |
+| `/tools/evidence/**` | **T15** | forbidden — captures screenshots manually and attaches them to the PR |
+| `/tests/**` | **T04** | **one named file only**, by explicit exception |
+| `docs/ENGINE.md` | shared T02 / T04 / T14 | **appends** its own section |
+| `project.godot` | **T02** | the only wave that writes it wholesale (§25) |
+
+### 38.5 Scope
+
+Changed: header `TASK STATUS` · **§6.1** *Exact version* row · **§6.3** table (three rows added, one
+annotated) and its closing notes · **§23 VS0-T01** (append-only supersession annotation; the A-03
+status blockquote is unchanged) · **§23 VS0-T01R** (new final-status row; *Dependencies* and
+*Parallelization* annotated as discharged) · **§23 VS0-T02** (Allowed/Forbidden paths, Branch,
+Implementation requirements, Tests, Evidence, Persistence impact, Stop conditions) · **§23 VS0-T04**
+(one clause) · **§25** shared-file table (one row) and parallel-safe wave row **A′** · **§26** row 1R
+· **§36.8** (append-only supersession annotation; the A-07 bullets are unchanged) · **§37** · **§38**
+(this section) · `CODEX_VS0_HANDOFF.md` (task status, waves A and A′) · `ADR-001` §1 step 2 and its
+revision header.
+
+**No text inside §30 – §36 was edited.** A-01 … A-07 keep their wording; §35 and §36 carry only the
+append-only annotations that already existed plus the one added at the end of §36.8.
+
+Unchanged: the **engine pin** · the **renderer** · the **320 × 180 pixel contract**, integer scaling,
+Nearest filtering, 16 × 16 tiles, 16 × 24 / 16 × 32 sprite classes · `TileMapLayer` approved and
+`TileMap` forbidden · the **autoload cap and order** (T02 still registers none) · **canon** ·
+**gameplay** · **persistence architecture** · **repository enforcement, the ruleset and
+`bypass_actors: []`** · **A-01 … A-07 historical text** · every other VS0 task.
