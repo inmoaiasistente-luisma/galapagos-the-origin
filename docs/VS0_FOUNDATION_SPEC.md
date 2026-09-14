@@ -1213,8 +1213,8 @@ conditions are additions, never replacements.
 | **Forbidden paths** | Any `.gd` *(except the single test file named above)*, `.tscn`, `.json`, `.cfg` or any other extension · `/.github/**` *(T01 and T14)* · `/addons/**` *(T04)* · `/docs/**` *(Claude and Luisma only)* · `/project.godot` *(T02)* · **any directory the manifest does not list** |
 | **Implementation requirements** | **Create exactly the directories in the VS0-T03 directory manifest and no others** — §5 is the VS0 **end-state shape**, not a T03 file list · each of those directories carries a `README.md` of **exactly three lines**, `Layer:` / `Owner:` / `Never:`, every value taken **verbatim from the manifest** — **Codex composes, paraphrases and infers nothing** · `.gitkeep`, **zero bytes**, in **`systems/`, `content/` and `data/generated/` only** · **`systems/` and `content/` receive no subdirectory** (§5) · **no file already on `main` is modified or deleted** |
 | **Tests** | `tests/unit/test_folder_contract.gd`, **written and committed in T03**. **It cannot run in T03 — GUT lands in T04 — and Codex must not report it as passing.** Behaviour is fixed by the *Test contract* below the manifest. |
-| **Acceptance criteria** | The manifest is realised exactly — every directory present, every `README.md` present and conforming, `.gitkeep` in exactly three places · **T03 itself adds no source, data or config file beyond the one authorized test file.** This does **not** mean the repository contains none: T02's files are on `main` and are **preserved byte-for-byte** · `git diff origin/main...HEAD --diff-filter=MD` is **empty** · the project still boots headless with exit `0` · **verified by the PR's static checks, not by running the GUT test** |
-| **Evidence** | Attached to the PR by hand — CI does not exist until T14, `evidence/` is gitignored and `/tools/evidence/**` is T15's: `t03_tree.txt` · `t03_readme_lines.txt` · `t03_diff_filter.txt` · `t03_headless_boot.txt`. **Verbatim command output, not summaries.** |
+| **Acceptance criteria** | The manifest is realised exactly — every directory present, every `README.md` present and conforming, `.gitkeep` in exactly three places · **T03 itself adds no source, data or config file beyond the one authorized test file.** This does **not** mean the repository contains none: T02's files are on `main` and are **preserved byte-for-byte** · `git diff origin/main...HEAD --diff-filter=MD` is **empty** · **`systems/` and `content/` each contain exactly `README.md` and `.gitkeep`, and no `systems/<anything>/` or `content/<anything>/` exists** — a **VS0-T03 acceptance invariant, not a permanent project invariant**, proven by static check and **never asserted in the durable test suite** · the project still boots headless with exit `0` · **verified by the PR's static checks, not by running the GUT test** |
+| **Evidence** | Attached to the PR by hand — CI does not exist until T14, `evidence/` is gitignored and `/tools/evidence/**` is T15's: the **verbatim output of all eight PR-time static checks** listed in the test contract below, as `t03_tree.txt` · `t03_readme_lines.txt` · `t03_diff_filter.txt` · `t03_empty_roots.txt` · `t03_headless_boot.txt`. **Verbatim command output, not summaries.** |
 | **Persistence impact** | None |
 | **Stop conditions** | `main` has advanced unexpectedly from the base the task was issued against · a manifest directory cannot be created · a required `Never:` string is absent from the manifest — **do not compose one** · any change would fall outside *Allowed paths* · any existing file would be modified or deleted |
 | **Parallelization** | Parallel-safe with VS0-T02. **T02 is ACCEPTED (§39); T03 now runs alone and is the last dependency blocking T04 (§24).** |
@@ -1230,8 +1230,8 @@ conditions are additions, never replacements.
 | # | Directory | Action | `README.md` | `.gitkeep` | `Layer:` | `Owner:` |
 |---|---|---|---|---|---|---|
 | 1 | `autoload/` | create | yes | no | `Autoload` | `VS0-T09, VS0-T10, VS0-T11` |
-| 2 | `core/` | create | yes | no | `Core` | `per subfolder — see §23` |
-| 3 | `core/contracts/` | create | yes | no | `Core` | `VS0-T08` |
+| 2 | `core/` | create | yes | no | `Core` | `shared Core root — no single VS0 owner` |
+| 3 | `core/contracts/` | create | yes | no | `Core` | `shared Core contract root — VS0-T08 owns generated/ only` |
 | 4 | `core/contracts/generated/` | create | yes | no | `Core` | `VS0-T08` |
 | 5 | `core/state/` | create | yes | no | `Core` | `VS0-T10` |
 | 6 | `core/save/` | create | yes | no | `Core` | `VS0-T11` |
@@ -1240,20 +1240,20 @@ conditions are additions, never replacements.
 | 9 | `core/events/` | create | yes | no | `Core` | `VS0-T09` |
 | 10 | `core/loc/` | create | yes | no | `Core` | `VS0-T12` |
 | 11 | `core/input/` | create | yes | no | `Core` | `VS0-T13` |
-| 12 | `core/log/` | create | yes | no | `Core` | `VS1+` |
-| 13 | `core/util/` | create | yes | no | `Core` | `VS1+` |
-| 14 | `data/` | create | yes | no | `Data` | `per subfolder — see §23` |
-| 15 | `data/source/` | create | yes | no | `Data` | `per subfolder — see §23` |
+| 12 | `core/log/` | create | yes | no | `Core` | `VS1+ — no VS0 owner` |
+| 13 | `core/util/` | create | yes | no | `Core` | `VS1+ — no VS0 owner` |
+| 14 | `data/` | create | yes | no | `Data` | `shared Data root — no single VS0 owner` |
+| 15 | `data/source/` | create | yes | no | `Data` | `shared Data source root — no single VS0 owner` |
 | 16 | `data/source/canon/` | create | yes | no | `Data` | `VS0-T08` |
 | 17 | `data/source/loc/` | create | yes | no | `Data` | `VS0-T12` |
 | 18 | `data/source/_registry/` | create | yes | no | `Data` | `VS0-T07` |
 | 19 | `data/source/_schema/` | create | yes | no | `Data` | `VS0-T07` |
-| 20 | `data/generated/` | create | yes | **YES** | `Data` | `VS1+` |
-| 21 | `systems/` | create | yes | **YES** | `Systems` | `VS1+` |
+| 20 | `data/generated/` | create | yes | **YES** | `Data` | `VS1+ — no VS0 owner` |
+| 21 | `systems/` | create | yes | **YES** | `Systems` | `VS1+ — no VS0 owner` |
 | 22 | `presentation/` | **exists** | yes | no | `Presentation` | `VS0-T02, VS0-T15` |
 | 23 | `presentation/boot/` | **exists** | yes | no | `Presentation` | `VS0-T02, VS0-T15` |
-| 24 | `content/` | create | yes | **YES** | `outside the layer graph` | `VS1+` |
-| 25 | `tools/` | create | yes | no | `outside the layer graph` | `per subfolder — see §23` |
+| 24 | `content/` | create | yes | **YES** | `outside the layer graph` | `VS1+ — no VS0 owner` |
+| 25 | `tools/` | create | yes | no | `outside the layer graph` | `shared tool infrastructure root — no single VS0 owner` |
 | 26 | `tools/validators/` | create | yes | no | `outside the layer graph` | `VS0-T07, VS0-T08, VS0-T12` |
 | 27 | `tools/generators/` | create | yes | no | `outside the layer graph` | `VS0-T08, VS0-T09, VS0-T13` |
 | 28 | `tools/lint/` | create | yes | no | `outside the layer graph` | `VS0-T05, VS0-T06` |
@@ -1264,6 +1264,26 @@ conditions are additions, never replacements.
 | 33 | `tests/canon/` | **exists** | yes | no | `outside the layer graph` | `VS0-T04` |
 | 34 | `tests/fixtures/` | create | yes | no | `outside the layer graph` | `VS0-T04` |
 | 35 | `tests/fixtures/saves/` | create | yes | no | `outside the layer graph` | `VS0-T11` |
+
+**`Owner:` vocabulary — the complete set, so no README ever carries a placeholder.** Every
+`Owner:` value in the manifest is a **final literal string**, copied as-is. There are exactly four
+shapes, and **no indirection: no "per subfolder", no "see §23", no "TBD", no cross-reference.**
+
+| Shape | Meaning | Where it appears |
+|---|---|---|
+| `VS0-T0n` — one task | **Exclusive task owner.** That task's §23 *Allowed paths* cover the directory's contents. | rows 4 – 11, 16 – 19, 29 – 35 |
+| `VS0-T0n, VS0-T1n, …` — enumerated | **Several tasks own disjoint files inside it.** The enumeration is exhaustive for VS0. | rows 1, 22, 23, 26, 27, 28 |
+| `shared … root — no single VS0 owner` | **A structural root that holds no VS0 file of its own**; its contents are owned per subdirectory by the rows below it. | rows 2, 14, 15, 25 |
+| `VS1+ — no VS0 owner` | **No VS0 task writes here at all.** The directory exists in VS0 only as a marked, empty place. | rows 12, 13, 20, 21, 24 |
+
+`core/contracts/` takes a fifth, **deliberately specific** string — `shared Core contract root —
+VS0-T08 owns generated/ only` — because **T08's *Allowed paths* cover `/core/contracts/generated/**`
+and nothing else**, while §5 also shows `core/contracts/result.gd`, which **no VS0 task is
+authorized to create** (§40.4). Marking the root `VS0-T08` would assert an exclusivity that does not
+exist. **The finding in §40.4 stands open and is not closed by this string.**
+
+> **The `Owner:` marker is descriptive, not a grant.** **§23 *Allowed paths* remain the sole
+> authority on who may write where.** A README never widens, narrows or creates permission.
 
 **`Layer:` derivation, stated once so nothing is inferred.** `ARCHITECTURE.md` §1 assigns a layer to
 exactly five roots — `presentation/`, `systems/`, `core/`, `data/`, `autoload/`. **§15.3 places
@@ -1347,16 +1367,21 @@ Never: hand-edited content — rebuildable artifacts
 
 **Status on merge of T03: WRITTEN · COMMITTED · NOT EXECUTED. Execution belongs to VS0-T04.** Codex
 must not install GUT, must not add a runner, and **must not report this test as passing** (§22).
-`extends GutTest`. Six assertions:
 
-| # | Assertion |
-|---|---|
-| 1 | Each of the **35 manifest directories** exists — a closed list embedded in the test as a constant |
-| 2 | Each of them contains a `README.md` |
-| 3 | Each `README.md` is **exactly three lines**, beginning `Layer: `, `Owner: `, `Never: `, with no trailing blank line |
-| 4 | Each `README.md`'s `Layer:` value **string-equals** the manifest value for that directory |
-| 5 | Every **root-level** directory is in `PERMITTED_ROOTS` ∪ `IGNORED_ROOTS` |
-| 6 | `systems/` and `content/` contain **no subdirectory** |
+> **This test enters the DURABLE suite at T04 and runs for the life of the project.** It may
+> therefore assert **only invariants that stay true as VS1 and later volumes are built.** **A VS0-only
+> condition must never be written into it** — such an assertion is not a guard, it is a scheduled
+> failure. Conditions true only at T03 are proven **once**, in T03's PR-time verification below.
+
+`extends GutTest`. **Five assertions, all durable:**
+
+| # | Durable assertion | Why it stays true after VS0 |
+|---|---|---|
+| 1 | Each of the **35 manifest directories** exists — a closed list embedded in the test as a constant | These directories are permanent architecture; VS1 adds to the tree, it does not remove these |
+| 2 | Each of them contains a `README.md` | The ownership marker is permanent |
+| 3 | Each `README.md` is **exactly three lines**, beginning `Layer: `, `Owner: `, `Never: `, with no trailing blank line | The marker format is permanent |
+| 4 | Each `README.md`'s `Layer:` value **string-equals** the manifest value for that directory | A directory's **layer** is fixed by `ARCHITECTURE.md` §1 and does not change with content |
+| 5 | Every **root-level** directory is in `PERMITTED_ROOTS` ∪ `IGNORED_ROOTS` | The repository's **root** shape is fixed; VS1 grows *inside* roots, not beside them |
 
 ```gdscript
 const PERMITTED_ROOTS := [".github", "addons", "autoload", "core", "content",
@@ -1365,21 +1390,53 @@ const IGNORED_ROOTS   := [".git", ".godot", "export", "evidence", ".worktrees", 
 ```
 
 `PERMITTED_ROOTS` is every root directory §5 names, including `addons/` (T04) and `.github/` (T14),
-so the assertion does not go red when those land in their own waves. `IGNORED_ROOTS` is `.gitignore`
+so assertion 5 does not go red when those land in their own waves. `IGNORED_ROOTS` is `.gitignore`
 verbatim plus `.git`.
 
-> **What this test does NOT claim, stated rather than hidden (§35.4).** GDScript cannot determine
-> version-control status: `DirAccess` reads the **filesystem**, which contains `.git/`, the
-> engine-generated `.godot/` and the gitignored `evidence/`. Assertion 5 therefore proves **"no
-> unexpected root directory"**, *not* "no unauthorized **versioned** root directory". The residual
-> gap is a directory that is both gitignored and force-added, which requires a deliberate
-> `git add -f`. **The test must carry this limit in its own docstring.** Invoking `git` from the test
-> was considered and rejected: it would make the suite fail wherever `git` is absent from `PATH`.
->
-> The complementary guarantee — **that T03 created no future-owned source, data or config file** —
-> is **not** expressible as a durable test, because those files legitimately appear from T04 onward.
-> It is proven **once, at T03 PR time**, by `git diff origin/main...HEAD --name-only`, and that
-> output is part of T03's required evidence.
+**Deliberately NOT a durable assertion.** `systems/` and `content/` being empty is **a VS0-T03
+acceptance invariant, not a permanent project invariant.** `ARCHITECTURE.md` §2 requires
+`systems/<name>/**` and `content/<name>/**` from VS1 onward, so a permanent test asserting their
+emptiness **is guaranteed to fail on correct VS1 work**. It is proven once, at T03 PR time, below.
+
+##### The two guarantees are different, and must not be confused
+
+| | **A — T03 PR-time Git verification** | **B — permanent GUT folder-contract test** |
+|---|---|---|
+| **When** | once, in the T03 pull request | every run, from T04 for the life of the project |
+| **Reads** | the **versioned tree and diff**, via `git` | the **filesystem**, via `DirAccess` |
+| **Proves** | that the **version-controlled** result of T03 contains no unauthorized directory or file, that nothing existing was modified or deleted, and that `systems/` and `content/` hold exactly `README.md` + `.gitkeep` | that the **filesystem root shape** matches `PERMITTED_ROOTS` ∪ `IGNORED_ROOTS`, and that the 35 directories and their markers are present and well-formed |
+| **Does NOT prove** | anything about later waves — it is a single observation of T03's own diff | **anything about tracked/untracked status.** It makes **no** version-control claim of any kind |
+
+> **What the GUT test does NOT claim, stated rather than hidden (§35.4).** **GDScript cannot
+> determine version-control status.** `DirAccess` reads the **filesystem**, which contains `.git/`,
+> the engine-generated `.godot/` and the gitignored `evidence/`. **Assertion 5 is a filesystem
+> root-shape guard and nothing more** — it proves *"no unexpected root directory on disk"*, and it
+> **must not be described, in the test or in any report, as proving anything about the
+> version-controlled tree.** The residual gap — a directory both gitignored and force-added — is
+> closed by **A**, not by **B**. **The test must carry this limit verbatim in its own docstring.**
+> Invoking `git` from the test was considered and rejected: it would make the durable suite fail
+> wherever `git` is absent from `PATH`.
+
+##### T03 PR-time static verification — the VS0-only proofs
+
+These are **VS0-T03 acceptance invariants, not permanent project invariants.** They are run by hand
+in the T03 pull request, their **verbatim output is T03 evidence**, and **none of them is written
+into the durable test suite.**
+
+| # | Command | Required result |
+|---|---|---|
+| 1 | `git diff origin/main...HEAD --diff-filter=MD --name-only` | **empty** — nothing existing modified or deleted |
+| 2 | `git diff origin/main...HEAD --name-only` | **only** `README.md` and `.gitkeep` paths, plus exactly one other line: `tests/unit/test_folder_contract.gd` |
+| 3 | `git ls-tree -d --name-only HEAD` | a subset of `PERMITTED_ROOTS` — **the versioned root shape** |
+| 4 | `git ls-files systems/` | **exactly** `systems/README.md` and `systems/.gitkeep` |
+| 5 | `git ls-files content/` | **exactly** `content/README.md` and `content/.gitkeep` |
+| 6 | `git ls-files 'systems/*/**' 'content/*/**'` | **empty** — **no `systems/<anything>/` and no `content/<anything>/` exists** (§5) |
+| 7 | line count of every versioned `README.md` outside `docs/` | **exactly 3** for each |
+| 8 | headless launch of the pinned engine with `--quit` | exit **`0`** |
+
+**Checks 4, 5 and 6 are the emptiness proof that was deliberately kept out of the durable test.**
+They are true at T03 and are **expected to stop being true in VS1** — which is exactly why they are
+proven here, once, and never asserted again.
 
 ---
 
@@ -2879,7 +2936,7 @@ decision supersedes it**, and the manifest in §23 records only the decided valu
 | **D3** | "Tree exactly as §5" read literally ordered Codex to create `ci.yml`, `export_presets.cfg`, `result.gd`, `save_envelope.gd`, the `.schema.json` files and the golden save — **every one of them forbidden by T03's own *Forbidden paths***. | §5's preamble now states it is the VS0 **end-state shape**, not a task manifest. T03 works from the **explicit 35-row directory manifest** in §23 and creates **directories only**. |
 | **D4** | §5 tied `.gitkeep` to folders "marked `(empty)`", the packet never mentioned `.gitkeep` at all, and Git does not version directories — so a README already materialises a folder and a second marker is redundant. | `.gitkeep`, **zero bytes**, in **exactly three directories** — `systems/`, `content/`, `data/generated/` — the three §5 shows as empty. **Nowhere else.** |
 | **D5** | The packet required a **layer**, an **owner** and a **prohibition** per folder, but authority defined a layer for only five roots, no owner for `core/log/` or `core/util/`, and no prohibition for `tools/` or `tests/`. **Codex would have had to invent labels.** | The §23 manifest gives an **exact `Layer:` and `Owner:` string for all 35 directories**, and the README contract gives an **exact `Never:` string** for every case. The two strings authority could not supply are the **owner decision in §40.2**. |
-| **D6** | "no folder outside §5 exists at repository root level" was to be checked by a GDScript test — **which cannot read version-control status** and would see `.git/`, the engine-generated `.godot/` and the gitignored `evidence/`, failing on a clean, correct checkout. | The contract applies to the **version-controlled tree**. The test asserts root-level membership against a **closed permitted list and a closed ignored list**, and **states in its own docstring the guarantee it does not provide.** The rule is **not weakened for unexpected versioned directories**: any root outside the permitted list still fails. |
+| **D6** | "no folder outside §5 exists at repository root level" was to be checked by a GDScript test — **which cannot read version-control status** and would see `.git/`, the engine-generated `.godot/` and the gitignored `evidence/`, failing on a clean, correct checkout. | **Split into two guarantees that are never conflated.** **(A) T03 PR-time Git verification** reads the **versioned** tree and diff and proves that T03's version-controlled result contains no unauthorized directory or file. **(B) The permanent GUT test** reads the **filesystem** and guards the **root shape** against a closed permitted list and a closed ignored list — **it makes no tracked/untracked claim whatsoever**, and must never be described as proving the version-controlled tree. **The rule is not weakened for unexpected versioned directories**: any root outside the permitted list fails **B**, and any unauthorized versioned path fails **A**. The honest limit is carried in the test's own docstring. |
 | **D7** | "no source file was added" is false on its face once T02 merged, and read literally would have had T03 reconcile the tree by **deleting accepted T02 work**. | Restated per-task: **T03 itself adds no source file** beyond the one authorized test. **Every file on `main` is preserved byte-for-byte**, proven by an empty `git diff --diff-filter=MD`. The four directories that already exist receive a README and **no** `.gitkeep`. |
 | **D8** | §5 shows `.github/workflows/ci.yml`, but §23 names **T14 the sole owner** of `/.github/workflows/**` and T01, T01R and T02 all forbid it. **"Sole owner" of `**` admits no marker exception.** | **`/.github/` is excluded from T03 entirely.** T14 creates `workflows/`; T01 already owns the PR template. |
 | **D9** | §5 shows `addons/gut/` — **vendored, pinned, the only third-party dependency** — and the packet would have written project authority text inside it. | **T03 creates neither `addons/` nor `addons/gut/`.** T04 creates both when it vendors GUT. **Third-party content is not marked.** |
@@ -2898,7 +2955,26 @@ discovered by a red build.** Neither blocks T03, which adds no `.gd` beyond the 
   preflight** — by an owner decision on the lint's scope or on those files, **not** by silently
   weakening the gate.
 
-### 40.5 Scope
+### 40.5 Independent-review corrections — 2026-09-14
+
+The first commit of the authority patch was reviewed and **four corrections were required before
+merge.** All four are applied in a second commit on the same pull request. **No prior finding was
+reversed and nothing listed in §40.3 was withdrawn.**
+
+| # | Correction | What changed |
+|---|---|---|
+| **C1** | **A temporary VS0 invariant had been written into a permanent test.** Assertion 6 required `systems/` and `content/` to contain no subdirectory — **guaranteed to fail as soon as legitimate VS1 work begins**, since `ARCHITECTURE.md` §2 requires `systems/<name>/**` and `content/<name>/**`. | The durable test now carries **five assertions, all durable.** The emptiness check moved to **T03 PR-time static verification** (checks 4 – 6), labelled a **VS0-T03 acceptance invariant, not a permanent project invariant**, in the packet, the test contract and here. |
+| **C2** | **The manifest still contained `Owner:` placeholders** — `per subfolder — see §23` on `core/`, `data/`, `data/source/` and `tools/` — which would have put an indirect reference into a README and forced Codex to resolve it. | **Every one of the 35 directories now carries a final literal `Owner:` string**, drawn from a **closed four-shape vocabulary** documented in §23: exclusive task · enumerated tasks · `shared … root — no single VS0 owner` · `VS1+ — no VS0 owner`. **No placeholder, no cross-reference, no "TBD" survives.** |
+| **C3** | **`core/contracts/` was marked `VS0-T08`, contradicting §40.4** — T08's *Allowed paths* cover `/core/contracts/generated/**` only, while §5 also shows `core/contracts/result.gd`, which no VS0 task may create. | The string is now `shared Core contract root — VS0-T08 owns generated/ only`, which asserts **no exclusivity T08 does not have**. **§40.4's finding stands open and is not closed by it.** |
+| **C4** | **The filesystem test and the versioned-tree proof were described as one guarantee.** §40.3's D6 said "the contract applies to the version-controlled tree" while the test itself can only read the filesystem. | The two are now **separated explicitly**: **(A)** T03 PR-time Git verification proves the **versioned** result; **(B)** the permanent GUT test guards the **filesystem** root shape and **makes no version-control claim.** The honest limitation is preserved verbatim, not softened. |
+
+> **The principle behind C1, and the reason it is recorded rather than quietly fixed:** a durable
+> test may assert only what stays true. **Writing a VS0-only condition into the permanent suite does
+> not protect VS0 — it schedules a false failure against correct future work**, and a suite that is
+> expected to go red is a suite that gets ignored. Conditions true only at one moment are proven at
+> that moment, once, in evidence.
+
+### 40.6 Scope
 
 Changed: header `TASK STATUS` · **§5** preamble · **§23 VS0-T03** (the packet, plus the new
 **directory manifest**, **README ownership contract** and **test contract** that follow it) · **§23
@@ -2907,6 +2983,11 @@ corrected to "first of the two") · **§26** rows 2 and 3 · **§39** (new) · *
 `CODEX_VS0_HANDOFF.md` (task status and wave B).
 
 **No text inside §30 – §38 was edited.** A-01 … A-07 keep their wording, §37 and §38 keep theirs.
+
+**Second commit on the same PR — independent-review corrections C1 – C4 (§40.5):** §23 VS0-T03
+*Acceptance criteria* and *Evidence* rows · the **`Owner:` vocabulary** block and ten manifest
+`Owner:` values · the **test contract**, rewritten · §40.3 row **D6** · §40.5 (new). **No change to
+§39, to the T02 acceptance record, or to any value listed as preserved.**
 
 Unchanged: the **engine pin** · the **renderer** · the **320 × 180 pixel contract**, integer scaling,
 Nearest filtering, 16 × 16 tiles, 16 × 24 / 16 × 32 sprite classes · every **VS0-T02 technical
