@@ -1555,11 +1555,11 @@ proven here, once, and never asserted again.
 | Field | Content |
 |---|---|
 | **Objective** | Vendor the pinned GUT release and make `run tests headless → JUnit XML → exit code` work. |
-| **Required reading** | ADR-002 §2, §3 · §14 · **§41 in full** · **§42 in full** of this document |
+| **Required reading** | ADR-002 §2, §3 · §14 · **§41 in full** · **§42 in full** · **§43 in full** of this document |
 | **Dependencies** | VS0-T02, VS0-T03. **Both ACCEPTED 2026-09-14 (§39, §39.1, §39.2) — the dependency is fully discharged.** |
 | **Branch** | `feature/VS0-T04-gut-runner` (`CONVENTIONS.md` §5), created from **exactly `T04_BASE`** after the hard pre-write gate in **§41.4**. **Every scope and diff check uses `T04_BASE...HEAD`.** **`T04_BASE` was re-established after STOP-01 — use the value defined in §42.11, not the initial one (§41.4 supersession box)** |
-| **Allowed paths** | `/addons/gut/**` · `/tools/test/**` · `/docs/ENGINE.md` · **`/icon.svg.import`** *(engine-generated import metadata, OWNER DECISION §42.6 — generated, never authored)* — **these four and nothing else** |
-| **Forbidden paths** | `core/**` `systems/**` `presentation/**` `data/**` · `/tests/**` — **the two accepted tests are READ-ONLY INPUTS to this task, not T04-owned source** (§41.7) · `/project.godot` — **GUT is never activated as an editor plugin** (§41.6) · `/.github/**` *(T01 and T14)* · `/docs/**` except `ENGINE.md` · `/tools/evidence/**` *(T15 — not a T04 output location, §41.12)* · **a `.gutconfig.json` anywhere in the repository** (§41.7) |
+| **Allowed paths** | `/addons/gut/**` · `/tools/test/**` · `/docs/ENGINE.md` · **`/icon.svg.import`** *(engine-generated import metadata, OWNER DECISION §42.6 — generated, never authored)* · **the SIX exact engine-generated UID sidecars of §42.6** — `presentation/boot/boot.gd.uid`, `presentation/boot/renderer_check.gd.uid`, `presentation/boot/verify_project_settings.gd.uid`, `tests/canon/test_project_settings.gd.uid`, `tests/unit/test_folder_contract.gd.uid`, `tools/test/fixtures/test_deliberate_failure.gd.uid` *(OWNER DECISION §43.3 — generated, never authored; **by exact path, and no `*.uid` wildcard is authorized**)* — **these and nothing else** |
+| **Forbidden paths** | `core/**` `systems/**` `presentation/**` `data/**` · `/tests/**` — **the two accepted tests are READ-ONLY INPUTS to this task, not T04-owned source** (§41.7). **NARROW EXCEPTION (OWNER DECISION §43.3):** the five engine-generated UID sidecars named in *Allowed paths* that lie under `presentation/**` and `/tests/**` are authorized **by exact path**, as generated metadata only. **They do NOT open those roots, and they do NOT authorize modifying `boot.gd`, `renderer_check.gd`, `verify_project_settings.gd`, `test_project_settings.gd` or `test_folder_contract.gd` — those five source files remain untouchable, and any diff entry against one of them is a STOP** · `/project.godot` — **GUT is never activated as an editor plugin** (§41.6) · `/.github/**` *(T01 and T14)* · `/docs/**` except `ENGINE.md` · `/tools/evidence/**` *(T15 — not a T04 output location, §41.12)* · **a `.gutconfig.json` anywhere in the repository** (§41.7) |
 | **Implementation requirements** | Vendor **exactly** the upstream `addons/gut/` subtree of **GUT `v9.7.1`**, unmodified, by the acquisition and checksum procedure in **§41.6** · record version, tag, tag commit, canonical archive URL and the **measured** archive SHA-256 in `docs/ENGINE.md` · **after vendoring there is no network access at build, run or test time, and CI never downloads GUT** · create **exactly** the three files named in **§41.7** · **implement the runner's import-preparation phase and the `3` exit code exactly as §42.5 specifies** · pass the **pin gate** in §41.6 · **wire both accepted tests into the runner and rewrite, weaken, skip, rename or move neither** |
 | **Tests** | The **negative runner proof** of §41.9 and §41.10: a deliberately failing fixture, driven through the same runner, proving a failing run is reported as a failure and exits non-zero. **A runner that has only ever returned success is not accepted.** |
 | **Acceptance criteria** | The complete list in **§41.11**. In summary: `v9.7.1` provenance and the **measured** archive SHA-256 recorded in `docs/ENGINE.md` · the vendored subtree proven identical to the upstream payload (§41.12) · pin gate passed against `4.7.2.stable.official.ed1daf0bf` · normal suite exits `0` and writes JUnit XML · **both accepted tests proven to have actually executed and passed, by parsing that XML** (§41.8) · the inner failure run exits `1` with a mechanically-parsed JUnit failure · the outer verifier exits `0` · no accepted test altered · no `project.godot` change |
@@ -3735,7 +3735,7 @@ $required = @(
 )
 
 foreach ($name in $required) {
-    $matched = @($root.testsuite) | Where-Object { $_.name -ceq $name }
+    $matched = @($root.testsuite | Where-Object { $_.name -ceq $name })
     if ($matched.Count -ne 1) {
         Write-Output ('SUITE {0} : NOT FOUND (matches={1})' -f $name, $matched.Count)
         $ok = $false
@@ -3764,8 +3764,40 @@ exit 0
   "exactly" must mean exactly.
 - **`$matched.Count -ne 1`** rejects both **absent** and **duplicated** suites. A closed set is
   proven by *exactly one* match, not by *at least one*.
-- **`@($root.testsuite)`** forces an array, because PowerShell returns a bare object when a single
-  `<testsuite>` child exists and `.Count` on a bare object is not what it looks like.
+- **`@($root.testsuite | Where-Object { … })`** wraps **the entire filtered pipeline**, not merely
+  its input. **The position of that parenthesis is load-bearing**, and the earlier form placed it
+  wrongly — see the box below.
+
+> **⚠ CORRECTED — VS0-T04 STOP-02, OWNER DECISION 2 (2026-09-15).** This block previously read
+> **`$matched = @($root.testsuite) | Where-Object { $_.name -ceq $name }`**. **That form can never
+> return `PASS`, against any report, valid or not.** It was a defect **in this authority text**, and
+> it is corrected above. The rule, the conditions and the required output are **unchanged**; only the
+> parenthesis moved.
+>
+> **Why the old form could not pass.** `@(…)` wrapped the pipeline's **input**. The pipeline's
+> **output** — a single matching suite — then collapsed straight back to a bare
+> `System.Xml.XmlElement`. From there:
+>
+> - **`$matched[0]` is `$null`.** An `XmlElement` exposes a real **string** indexer
+>   (`Item[string]`), so PowerShell does **not** apply its "index 0 of a scalar is the scalar"
+>   convenience: it converts `0` to `"0"`, looks for a child element named `0`, and finds none.
+> - **`[int]$null.tests` is `0`.** A suite that genuinely ran four passing tests is reported as
+>   `tests=0`, and `$tests -le 0` fails the run.
+> - **The symptom is edition-dependent, and neither edition can pass.** On **Windows PowerShell
+>   5.1**, `.Count` on a bare `XmlElement` returns **nothing**, the `-ne 1` guard fires, and the
+>   block prints **`SUITE … : NOT FOUND (matches=)`**. On **PowerShell 7**, `.Count` returns `1`,
+>   the guard passes, and execution falls through to the null indexer and prints **`tests=0`**.
+>   **Both end in `RESULT FAIL`.** Two different-looking reports, one root cause.
+>
+> **The general rule, binding everywhere in this document and in `tools/test/**`:** a
+> `Where-Object` result that is later used with **`.Count`** or an **index** is **always wrapped
+> whole** — `@(<collection> | Where-Object { … })`. It is applied again in **§41.10**.
+>
+> **How this was found matters as much as the fix.** The implementer ran the mandated block against
+> a genuinely green report, got `FAIL`, and **stopped and reported that the public verification
+> contract could not pass — instead of editing the contract until its own run went green** (§43.4).
+> That is precisely the behaviour §41.13 exists to produce, and it is the reason a defect in the
+> verifier did not become a permanent blind spot in the thing being verified.
 
 **Required output, and where it goes.** The block prints, for each of the two required suites, its
 **name**, its **tests** count and its **failures** count; then the **root failure count**, the
@@ -3861,6 +3893,35 @@ the tool happened to return — an expectation edited to match an observation pr
 4. That suite contains a `<testcase>` with `status="fail"` carrying a child `<failure>` element.
 5. The root `<testsuites>` reports a `failures` count of at least `1`.
 
+> **⚠ ADDED — VS0-T04 STOP-02, OWNER DECISION 2 (2026-09-15): the array-safe selection rule binds
+> this verifier too.** No condition above is weakened, replaced or reworded; this fixes **how** they
+> are evaluated.
+>
+> **Every filtered XML collection in `verify_runner_failure.ps1` wraps the whole pipeline in
+> `@(…)`** — exactly as corrected in §41.8 — whenever its result is used with `.Count` or an index:
+>
+> ```powershell
+> $root    = $doc.testsuites
+> $matched = @($root.testsuite | Where-Object { $_.name -ceq 'tools/test/fixtures/test_deliberate_failure.gd' })
+> if ($matched.Count -ne 1) { <FAIL> }                       # condition 3
+>
+> $failing = @($matched[0].testcase | Where-Object { $_.status -ceq 'fail' })
+> if ($failing.Count -lt 1) { <FAIL> }                       # condition 4
+> ```
+>
+> **`@($root.testsuite) | Where-Object { … }` is forbidden here for the same measured reason it was
+> corrected in §41.8:** the filter's single-element output collapses to a bare `XmlElement`, whose
+> `[0]` is `$null`, and the verifier reports `FAIL` against a probe that behaved perfectly.
+>
+> **A verifier must not carry the defect it exists to detect.** This one exists to prove that a real
+> failure is reported as a failure; a selection bug that returns `FAIL` unconditionally would make it
+> *look* correct while proving nothing at all — it would pass its own test for the wrong reason,
+> which is the exact failure mode §41.10 was written against.
+>
+> **Unchanged:** `-ceq` case-sensitive matching · **exactly one** matching suite · the real `[xml]`
+> parse under `$ErrorActionPreference = 'Stop'` · **inner `1` / outer `0`** · non-zero exit on any
+> other outcome. **No XPath.** **No change to GUT's JUnit schema.** **No condition relaxed.**
+
 **The verifier prints, verbatim, the inner exit code, the matched suite name, the failing testcase's
 name and status, and the root failure count, then `PASS` or `FAIL`.** That output goes to
 `evidence/t04_failure_probe.txt` together with the inner run's complete `stdout` and `stderr`.
@@ -3922,10 +3983,18 @@ That is what makes it an acceptance run rather than a demonstration: it proves t
 16. **Run B's XML contains the fixture's failing `<testcase>`** as specified in §41.10.
 17. **Run B's outer verifier exits `0`.**
 18. `git diff --name-status T04_BASE...HEAD` (§41.4) shows changes **only** under
-    `/addons/gut/**`, `/tools/test/**`, `/docs/ENGINE.md` and **`/icon.svg.import`** — **zero
-    entries under `/tests/**`, and `project.godot` absent from the list.** The **expected shape is
-    exact**: **`263 A` · `1 M` · `0 D` · `0 R` · `0 C` — 264 changed versioned paths**, derived in
-    §42.6.1. **The sole modified pre-existing file is `docs/ENGINE.md`.**
+    `/addons/gut/**`, `/tools/test/**`, `/docs/ENGINE.md`, **`/icon.svg.import`** and **the six
+    exact UID sidecars of §42.6** — and `project.godot` is **absent from the list**. The **expected
+    shape is exact**: **`269 A` · `1 M` · `0 D` · `0 R` · `0 C` — 270 changed versioned paths**,
+    derived in §42.6.1. **The sole modified pre-existing file is `docs/ENGINE.md`.**
+
+    **The `/tests/**` rule is now stated precisely, because it is no longer "zero entries".** The
+    only permitted entries under `/tests/**` are **`A`** on exactly
+    `tests/canon/test_project_settings.gd.uid` and `tests/unit/test_folder_contract.gd.uid`
+    (§43.3). **`tests/canon/test_project_settings.gd` and `tests/unit/test_folder_contract.gd`
+    themselves must not appear in the diff at all — not as `M`, not as `R`, not as `D`.** The same
+    holds under `presentation/**`: three `A` entries for the named `.uid` sidecars, and **nothing
+    else whatsoever**.
 
 ### 41.12 Evidence, and the vendored-tree proof
 
@@ -3935,9 +4004,8 @@ That is what makes it an acceptance run rather than a demonstration: it proves t
 |---|---|
 | `evidence/gut_results.xml` | Run A's JUnit report |
 | `evidence/gut_runner_failure.xml` | Run B's inner JUnit report |
-| `evidence/t04_normal_run.txt` | Run A's **verbatim** `stdout` + `stderr` and its exit code, **plus the full import-preparation record**: confirmation that `.godot/` and `global_script_class_cache.cfg` were **absent before the run**, the exact import command, the import process's complete `stdout` + `stderr`, **`IMPORT exit=0`**, confirmation that the class cache **exists after preparation**, the **import-metadata proof of §42.7** — `icon.svg.import` **absent before** the run and **present and non-empty after** it, its size or hash, the `git status` path proof identifying it as exactly the authorized metadata output, and **confirmation that no other unexpected versioned path was produced** — and the XML proof block's output (§41.8) |
+| `evidence/t04_normal_run.txt` | Run A's **verbatim** `stdout` + `stderr` and its exit code, **plus the full import-preparation record**: confirmation that `.godot/` and `global_script_class_cache.cfg` were **absent before the run**, the exact import command, the import process's complete `stdout` + `stderr`, **`IMPORT exit=0`**, confirmation that the class cache **exists after preparation**, the **import-metadata proof of §42.7** — `icon.svg.import` **absent before** the run and **present and non-empty after** it, its size or hash, the `git status` path proof identifying it as exactly the authorized metadata output, **the complete set of engine-generated `.uid` sidecars produced by the import, listed by full path, which must be exactly the six authorized in §42.6 — no more, no fewer, no substitutions**, and **confirmation that no other unexpected versioned path was produced** — and the XML proof block's output (§41.8) |
 | `evidence/t04_failure_probe.txt` | Run B's **verbatim** `stdout` + `stderr`, the **import-preparation output and import exit code**, the **inner** GUT exit code, and the **outer** verifier result |
-
 | `evidence/t04_gut_archive_sha256.txt` | The canonical URL and the **measured** pre-extraction SHA-256 |
 | `evidence/t04_vendor_manifest.txt` | The vendored-tree manifest below |
 
@@ -4030,9 +4098,11 @@ prove what was *committed*. The manifest closes that gap:
     prompt under any circumstances**, and verbatim propagation of GUT's `0` / `1` thereafter. If
     actual PowerShell or GUT behaviour forbids it, **report it; do not substitute another parameter
     design, a different exit code, a third mode or an extra switch.**
-18. Any required change falls **outside the four Allowed paths** · **`--import` produces any new or
-    modified non-ignored versioned path other than `/icon.svg.import`** (§42.6) · or **network access
-    is required at any point after vendoring**.
+18. Any required change falls **outside the Allowed paths of §23** · **`--import` produces any new
+    or modified non-ignored versioned path other than the authorized generated paths enumerated in
+    §42.6** — `/icon.svg.import` and the **six exact** UID sidecars, **matched by exact path and
+    never by a `*.uid` pattern** · **any of the five corresponding `.gd` source files appears in the
+    diff** (§41.11 criterion 18) · or **network access is required at any point after vendoring**.
 
 ### 41.14 Scope
 
@@ -4242,9 +4312,16 @@ committed. This repository already agrees: its `.gitignore` ignores `.godot/` an
 Meanwhile `project.godot` declares `config/icon="res://icon.svg"`, `icon.svg` is tracked, and
 **`icon.svg.import` is absent from the versioned tree.** A clean import therefore *will* create it.
 
-**OWNER DECISION — exactly one additional versioned path is authorized for resumed VS0-T04:**
+**OWNER DECISION (STOP-01 R1, 2026-09-15) — one additional versioned path is authorized for resumed
+VS0-T04:**
 
 > **`/icon.svg.import`**
+
+> **⚠ No longer the only one.** That decision authorized this path and said plainly that **no other
+> generated path was pre-authorized**. The measurement it demanded was then taken, and **STOP-02
+> authorized six more — the `.uid` sidecars of row 3 below, by exact path** (§43.3). **The complete
+> authorized set is the three-row contract that follows; this paragraph records how the first row of
+> it was decided, not the whole of it.**
 
 It is **engine-generated import metadata for the already accepted T02 project icon**. It is **not
 hand-authored**. It **must** be produced by the pinned engine **`4.7.2.stable.official.ed1daf0bf`**
@@ -4252,24 +4329,58 @@ during the fresh-cache `--import` preparation of §42.7. **T04 must not fabricat
 another project, pre-seed it, or edit it after generation** — and the committed file must be
 **byte-identical** to the one that import run produced.
 
-**The complete generated-output contract. The import phase may produce exactly two things:**
+**The complete generated-output contract. The import phase may produce exactly three kinds of
+thing, and nothing else:**
 
 | # | What | Disposition |
 |---|---|---|
 | **1** | **`.godot/**`** | **Ignored generated cache. Never committed.** |
 | **2** | **`/icon.svg.import`** | **The single authorized versioned import-metadata artifact. Committed by T04.** |
+| **3** | **SIX exact `.uid` script sidecars, enumerated below** | **Authorized versioned script metadata. Committed by T04. BY EXACT PATH — no wildcard.** |
+
+**Row 3 — the six authorized UID sidecars (OWNER DECISION, VS0-T04 STOP-02, §43.3):**
+
+| # | Exact path | Sidecar of |
+|---|---|---|
+| 1 | `presentation/boot/boot.gd.uid` | `presentation/boot/boot.gd` |
+| 2 | `presentation/boot/renderer_check.gd.uid` | `presentation/boot/renderer_check.gd` |
+| 3 | `presentation/boot/verify_project_settings.gd.uid` | `presentation/boot/verify_project_settings.gd` |
+| 4 | `tests/canon/test_project_settings.gd.uid` | `tests/canon/test_project_settings.gd` |
+| 5 | `tests/unit/test_folder_contract.gd.uid` | `tests/unit/test_folder_contract.gd` |
+| 6 | `tools/test/fixtures/test_deliberate_failure.gd.uid` | `tools/test/fixtures/test_deliberate_failure.gd` *(the T04-authored fixture; already inside the `/tools/test/**` Allowed path)* |
+
+**That is one sidecar per project-owned `.gd` script that exists in the tree at import time** — the
+five tracked in `T04_BASE`, plus the one T04 itself authors. **It is a closed, enumerated set, not a
+pattern.**
 
 **Any other new or modified non-ignored, versioned path produced by `--import` is a STOP** — including
-but not limited to: **another unexpected `*.import`** · **any `*.uid` not already present in
-`T04_BASE`** · a changed `.tscn` · a changed `.tres` · a changed `project.godot` · any source file ·
-any file outside the corrected Allowed paths. **Nothing beyond the two rows above is pre-authorized.
-Measure first; stop if anything else appears.**
+but not limited to: **another unexpected `*.import`** · **any `.uid` at any path not in the six-row
+table above** · a changed `.tscn` · a changed `.tres` · a changed `project.godot` · **any `.gd`
+source file, including the six whose sidecars are authorized** · any file outside the Allowed paths
+of §23. **Nothing beyond the three rows above is pre-authorized. Measure first; stop if anything else
+appears.**
 
-> **On `.uid` sidecars specifically.** Godot 4.4+ supports `.uid` sidecars for scripts and shaders.
-> **Do not assume `--import` will create any here, and no `.uid` path is pre-authorized.** If the
-> resumed import creates a new non-ignored `.uid` outside the exact authorized diff, **STOP and
-> report.** This is deliberately measurement-first: pre-authorizing metadata nobody has observed is
-> how an unbounded write scope is acquired one plausible file at a time.
+> **⚠ SUPERSEDED IN PART — VS0-T04 STOP-02, OWNER DECISION 1 (2026-09-15).** This section previously
+> carried the note: *"On `.uid` sidecars specifically. Godot 4.4+ supports `.uid` sidecars for
+> scripts and shaders. **Do not assume `--import` will create any here, and no `.uid` path is
+> pre-authorized.** If the resumed import creates a new non-ignored `.uid` outside the exact
+> authorized diff, **STOP and report.** This is deliberately measurement-first: pre-authorizing
+> metadata nobody has observed is how an unbounded write scope is acquired one plausible file at a
+> time."*
+>
+> **That note did exactly what it was written to do, and the measurement has now been taken.** The
+> resumed import created **six** non-ignored `.uid` sidecars; the implementation **stopped and
+> reported them instead of committing them** (§43.2); the owner authorized **those six, by exact
+> path** (§43.3).
+>
+> **What is superseded:** the clause *"no `.uid` path is pre-authorized."* **Six now are.**
+>
+> **What survives verbatim, and still governs everything else:** *"Do not assume `--import` will
+> create any here"* · **any `.uid` outside the six-row table is a STOP** · **no `*.uid` wildcard is
+> authorized, and one must never be written into any allow-list, `.gitignore` rule or acceptance
+> check** · and the reason both were written down — *"pre-authorizing metadata nobody has observed is
+> how an unbounded write scope is acquired one plausible file at a time."* **Six observed paths were
+> authorized. A pattern was not.** That distinction is the entire content of this supersession.
 
 **Rules that did not change:**
 
@@ -4295,15 +4406,37 @@ an expectation edited to match an observation proves nothing (§41.10).
 |---|---|---|
 | Vendored GUT files under `addons/gut/**` | **259** | The `v9.7.1` payload, **fixed by the pinned tree object `5d6893836af4917ee62b1a395125a7530b1f239d`** (§41.5) |
 | T04-authored files under `tools/test/**` | **3** | §41.7 |
-| Engine-generated import metadata | **1** | `/icon.svg.import`, this section |
-| **Total additions** | **263 `A`** | |
+| Engine-generated import metadata | **1** | `/icon.svg.import`, §42.6 row 2 |
+| Engine-generated `.uid` script sidecars | **6** | §42.6 row 3 — **the enumerated six, OWNER DECISION §43.3** |
+| **Total additions** | **269 `A`** | |
 | Modified pre-existing files | **1 `M`** | **`docs/ENGINE.md`, and nothing else** |
 | Deleted · renamed · copied | **0 `D` · 0 `R` · 0 `C`** | |
-| **Total changed versioned paths** | **264** | |
+| **Total changed versioned paths** | **270** | |
 
-**The added paths outside `addons/gut/` are exactly four:** `tools/test/run_gut.ps1` ·
+**The added paths outside `addons/gut/` are exactly ten:** `tools/test/run_gut.ps1` ·
 `tools/test/verify_runner_failure.ps1` · `tools/test/fixtures/test_deliberate_failure.gd` ·
-`icon.svg.import`.
+`icon.svg.import` · `presentation/boot/boot.gd.uid` · `presentation/boot/renderer_check.gd.uid` ·
+`presentation/boot/verify_project_settings.gd.uid` · `tests/canon/test_project_settings.gd.uid` ·
+`tests/unit/test_folder_contract.gd.uid` ·
+`tools/test/fixtures/test_deliberate_failure.gd.uid`.
+
+**The `6` is derived, not remembered, and the derivation is the check.** Godot writes one `.uid`
+beside each script it imports. `T04_BASE` tracks **five** `.gd` files — `presentation/boot/boot.gd`,
+`presentation/boot/renderer_check.gd`, `presentation/boot/verify_project_settings.gd`,
+`tests/canon/test_project_settings.gd`, `tests/unit/test_folder_contract.gd` — and T04 authors
+**one** more, the §41.9 fixture. **Five plus one is six, and each authorized path is the name of an
+existing script with `.uid` appended.** If the resumed import produces a seventh, or a `.uid` whose
+stem is not one of those six scripts, **the premise of this count has changed and T04 stops** (§41.13
+stop 18).
+
+> **`addons/gut/**` is excluded from this reasoning on purpose, and the exclusion is measured.**
+> The vendored payload contains GUT's own `.uid` files **already, as shipped upstream** — the
+> `v9.7.1` `addons/gut` payload is **259 files, of which 87 are `.uid`**, and the extracted upstream
+> archive has the **identical** split. They are **vendored content**, counted inside the `259`, and
+> **the import neither creates nor modifies them.** The post-import manifest parity check of §42.6
+> proves exactly that. **A reviewer who counts `.uid` files across the whole tree will find 93 and
+> conclude the import mutated the vendored subtree. It did not** — 87 arrived in the archive and 6
+> were generated. **Count them per-subtree, or the parity proof appears to fail when it has not.**
 
 **The `259` is not remembered, it is determined.** Stop 3 pins the `addons/gut` tree object, so the
 payload's file count is fixed by the same check that pins its content — **if the re-measured count is
@@ -4329,7 +4462,8 @@ Immediately before the final Run A acceptance execution:
    because `.godot/` is generated cache, not source.**
 3. **Confirm `global_script_class_cache.cfg` is absent.**
 4. **Confirm `icon.svg.import` is absent** (§42.6).
-5. Execute **only** this, and nothing between step 4 and it:
+5. **Confirm all six authorized `.uid` sidecars of §42.6 are absent**, by exact path.
+6. Execute **only** this, and nothing between step 5 and it:
 
    ```powershell
    tools/test/run_gut.ps1 -GodotPath '<exact pinned console exe>'
@@ -4346,14 +4480,22 @@ cache**, **invoke GUT**, **produce `gut_results.xml`**, and **satisfy the §41.8
 
 - **`.godot/global_script_class_cache.cfg` exists.**
 - **`icon.svg.import` exists** and is **non-empty**.
-- **`git status` identifies `icon.svg.import` as exactly the authorized generated versioned metadata
-  path** — by path, not by pattern.
-- **No other new or modified non-ignored versioned path was produced** (§42.6).
+- **All six authorized `.uid` sidecars of §42.6 exist**, each **non-empty**, **each at its exact
+  authorized path.**
+- **`git status` identifies `icon.svg.import` and those six `.uid` files as exactly the authorized
+  generated versioned metadata paths** — **enumerated by path, never matched by pattern.** A
+  `*.uid` glob would report the same result whether the import produced six files or sixty, which is
+  precisely the proof this step must not skip.
+- **No other new or modified non-ignored versioned path was produced** (§42.6) — and in particular
+  **none of the six corresponding `.gd` scripts is listed as modified.**
 
-**`icon.svg.import` is generated by this run and by no other command.** It is not produced by a
-separate hand-run `--import`, not copied, not pre-seeded, and **not edited afterwards**: the file
-committed by T04 must be **byte-identical** to the one this pinned import run wrote. A metadata file
-whose provenance is a person rather than the pinned engine is not evidence of anything.
+**`icon.svg.import` and the six `.uid` sidecars are generated by this run and by no other command.**
+They are not produced by a separate hand-run `--import`, not copied, not pre-seeded, and **not edited
+afterwards**: every one of the seven files committed by T04 must be **byte-identical** to what this
+pinned import run wrote. A metadata file whose provenance is a person rather than the pinned engine is
+not evidence of anything — and a `.uid` in particular is a **stable identity Godot will resolve
+against for the rest of the project's life**, so a hand-typed one is not merely unproven, it is a
+latent breakage.
 
 **A runner that only works on a machine that has already imported once is not accepted.** This is the
 same standard already applied to the negative proof: **a capability that has never been exercised
@@ -4400,9 +4542,21 @@ This correction merges **after** the initial base, so the base moves:
 | **INITIAL `T04_BASE` / STOP-01 base** | `1860532e99e9eb8274f9483bf569195c76692bd5` | **Historical.** The base of the stopped first attempt. **Not the resumed execution base** |
 | **`T04_BASE` (resumed)** | **the actual normal GitHub merge commit of the STOP-01 authority pull request** | **Authoritative.** Supplied in the post-merge Codex handoff |
 
-**The new value is deliberately not written here: the STOP-01 pull request has not merged, and a SHA
-written before the merge is a guess.** **Do not use the provisional `merge_commit_sha` GitHub exposes
-while a pull request is open.**
+**The new value was deliberately not written here while the STOP-01 pull request was open**, because
+a SHA written before a merge is a guess. **Do not use the provisional `merge_commit_sha` GitHub
+exposes while a pull request is open.**
+
+> **⚠ RESOLVED — the STOP-01 authority pull request merged on 2026-09-15.** **`T04_BASE` (resumed) is
+> `b322586068f1c23f8c687494baad10980c504972`** — the normal GitHub merge commit of that pull
+> request, verified after the merge and not before it. **This value is recorded, not predicted.**
+> The gate of §41.4 applies to it verbatim: fetch, compare all forty characters against
+> `origin/main`, record it, branch from exactly it, **stop on any difference — no rebase onto a newer
+> `main`.**
+>
+> **This STOP-02 authority patch is itself a change to `main`, and it therefore moves the base
+> again** (§43.6). **The value above is the base of the STOP-02 stop, not necessarily the base of
+> the resumed run.** Codex takes `T04_BASE` from the post-merge handoff of **this** pull request, and
+> the §41.4 gate — not memory, and not this paragraph — is what decides whether it is correct.
 
 **Resumed implementation must not continue on the old base.** The §41.4 gate applies verbatim to the
 new value: fetch, compare all forty characters, record the exact SHA, branch from exactly it, and
@@ -4484,3 +4638,239 @@ ADR and all of §39 – §40 are **exactly as they stood at the first commit.**
 **This patch is documentation only.** It creates no runner, vendors nothing, downloads nothing, runs
 no test, touches no implementation file, **adds no `icon.svg.import`** — that file is generated later,
 by the resumed implementation — and does not modify the stopped T04 worktree.
+
+---
+
+## 43. VS0-T04 STOP-02 — UID sidecars and the array-safe XML verifier
+
+> **AUTHORITY RECORD — OWNER DECISIONS, 2026-09-15.** Documentation only. Two stop conditions were
+> raised by implementation before any commit, both were verified independently, and both were
+> decided by the owner. **This section records what happened and what was decided; the operative
+> changes are made in §23, §41.8, §41.10, §41.11, §41.12, §41.13, §42.6, §42.6.1 and §42.7.**
+
+### 43.1 What happened
+
+VS0-T04 resumed from `T04_BASE` `b322586068f1c23f8c687494baad10980c504972` (§42.11), executed the
+full preflight and reached **Run A**. Preflight passed end to end: the base matched `origin/main` on
+all forty characters, the STOP-01 worktree was verified frozen, the engine reported
+`4.7.2.stable.official.ed1daf0bf`, GUT `v9.7.1` was acquired at tag commit
+`aeb5d4f3f7f0a6c9b5e178876d6c99b791fda605` with `addons/gut` tree
+`5d6893836af4917ee62b1a395125a7530b1f239d`, the vendored subtree matched the upstream payload
+byte-for-byte **before and after the import**, and all ten invalid runner invocations exited `2`.
+
+**The import phase worked.** `IMPORT exit=0`; the class cache existed afterwards; GUT collected and
+ran the suite — **Scripts 2, Tests 9, Passing 9, 172 asserts** — and `evidence/gut_results.xml` was
+written. **STOP-01 is resolved: the bootstrap fix is correct.**
+
+Implementation then stopped, **before any commit, push, branch or pull request**, on two conditions.
+Neither was worked around, and nothing was deleted to make the tree look clean.
+
+| # | Condition | §41.13 |
+|---|---|---|
+| **1** | `--import` produced **six non-ignored versioned `.uid` files** that no Allowed path covered | stop **18** |
+| **2** | The **§41.8 verification block, as written in this authority text, reported `FAIL` against a fully passing report** | §41.10 principle |
+
+**Both stops were correct, and the second one is the more important of the two.** The verifier was
+*this document's* text, not the implementation's — and the implementer reported that the mandated
+contract could not pass **rather than editing the contract until its own run went green.**
+
+### 43.2 Finding 1 — the six UID sidecars
+
+**What Godot did.** Godot 4.4+ writes a `.uid` sidecar beside each script it imports, carrying a
+stable resource identity. The fresh-cache import of §42.7 therefore created one per project-owned
+`.gd` script:
+
+| # | Generated path |
+|---|---|
+| 1 | `presentation/boot/boot.gd.uid` |
+| 2 | `presentation/boot/renderer_check.gd.uid` |
+| 3 | `presentation/boot/verify_project_settings.gd.uid` |
+| 4 | `tests/canon/test_project_settings.gd.uid` |
+| 5 | `tests/unit/test_folder_contract.gd.uid` |
+| 6 | `tools/test/fixtures/test_deliberate_failure.gd.uid` |
+
+**Independently verified before the decision was put to the owner:**
+
+- The count is **exactly one per project-owned `.gd` script in the tree at import time** — the five
+  tracked in `T04_BASE` plus the one T04 authors (§41.9). **There is no seventh, and no `.uid`
+  whose stem is not one of those six scripts.**
+- **None of them is gitignored.** `git check-ignore -v presentation/boot/boot.gd.uid` exits `1`.
+  They are genuinely versioned paths, not a `git status` artifact.
+- **The five corresponding source files are untouched.** No `.gd` file appears as modified.
+- `icon.svg` remains **the only tracked importable non-script asset**, so `/icon.svg.import` remains
+  the only `.import` sidecar — §42.6.1's reasoning is intact.
+
+**Why §42.6 called this a STOP, and why that was right.** The R1 correction to §42.6 said, in
+terms: *"Do not assume `--import` will create any here, and no `.uid` path is pre-authorized… this is
+deliberately measurement-first."* **The measurement has now been taken, by the only method that could
+have taken it — running the pinned engine and reporting what it produced.** A pre-authorized `*.uid`
+wildcard would have absorbed these six silently and would equally have absorbed anything else the
+engine ever writes with that extension.
+
+> **⚠ A near-miss worth recording, because the next reviewer will hit it too.** Counting `.uid`
+> files across the whole worktree after the import returns **93**, and the vendored subtree holds
+> **87** of them. That looks exactly like the import mutating `addons/gut/**` and falsifying the
+> vendor-parity claim. **It is not.** The extracted upstream `v9.7.1` archive has the **identical**
+> split — **259 files, 172 non-`.uid` and 87 `.uid`** — so all 87 arrived as vendored content and the
+> import created none of them. The byte-identical post-import manifest is the authoritative proof and
+> it holds. **Count per-subtree, not tree-wide**, or a correct parity result reads as a failure.
+
+### 43.3 OWNER DECISION 1 — six exact paths, and no pattern
+
+> **APPROVED.** **Exactly the six Godot-generated UID sidecars listed in §43.2 are authorized** as
+> T04 output. They are recorded in the generated-output contract of **§42.6, row 3** and in the
+> *Allowed paths* of the **§23 VS0-T04** packet.
+>
+> - **Authorization is by exact path only.** **No `*.uid` wildcard is authorized** — not in the
+>   Allowed paths, not in an acceptance check, not in `.gitignore`, not anywhere.
+> - **The five paths under `presentation/**` and `/tests/**` are narrow generated-metadata
+>   exceptions only.** They **do not** open those roots, and they **do not** authorize modifying
+>   `boot.gd`, `renderer_check.gd`, `verify_project_settings.gd`, `test_project_settings.gd` or
+>   `test_folder_contract.gd`. **Those five source files remain untouchable; any diff entry against
+>   one of them is a STOP.**
+> - **They are engine output, never authored.** The same provenance rule that governs
+>   `/icon.svg.import` governs them (§42.7): produced by the pinned engine's own import run, and
+>   committed byte-identical to what it wrote.
+> - **Anything else `--import` produces remains a STOP** (§41.13 stop 18).
+
+**Why exact paths rather than a pattern, stated once so it is not re-litigated.** A wildcard would
+make the write scope a *property of a filename* — and the standing principle of this specification is
+the opposite: **prove membership of a closed set, never a property of a name** (§41.8). Six enumerated
+paths are a closed set a reviewer can check by reading. `*.uid` is a promise about every file that
+will ever end in those four characters.
+
+### 43.4 Finding 2 — the §41.8 verification block could not pass
+
+**The defect was in this authority text.** §41.8 mandated:
+
+```powershell
+$matched = @($root.testsuite) | Where-Object { $_.name -ceq $name }
+```
+
+`@(…)` wrapped the pipeline's **input**. Its **output** — one matching suite — collapsed back to a
+bare `System.Xml.XmlElement`. `$matched[0]` then hit that element's **string** indexer, returned
+`$null`, and `[int]$null.tests` evaluated to `0`.
+
+**Reproduced independently on this machine, PowerShell `5.1.26100.9444`, against the real
+`evidence/gut_results.xml` produced by Run A:**
+
+```
+AS-SHIPPED  type       : System.Xml.XmlElement      <- a scalar, not an array
+AS-SHIPPED  .Count     :                            <- empty on PS 5.1
+AS-SHIPPED  [0] null?  : True
+AS-SHIPPED  [int]tests : 0
+AS-SHIPPED  end-to-end : SUITE … : NOT FOUND (matches=)   ->  RESULT FAIL
+
+FIXED       type       : System.Object[]
+FIXED       .Count     : 1
+FIXED       end-to-end : tests=4 failures=0 / tests=5 failures=0 / RESULT PASS
+NEGATIVE CONTROL       : -ceq against a wrong-case name -> matches=0
+```
+
+**The symptom is edition-dependent; the verdict is not.** On **Windows PowerShell 5.1** `.Count` on
+a bare `XmlElement` returns nothing, the `-ne 1` guard fires, and the block prints
+**`NOT FOUND (matches=)`**. On **PowerShell 7** `.Count` returns `1`, the guard passes, and the null
+indexer produces **`tests=0`** — which is what the implementation's transcript showed. **Same root
+cause, two faces, and neither edition can ever reach `PASS`.**
+
+**Nine tests genuinely passed.** GUT reported *Scripts 2, Tests 9, Passing 9, 172 asserts* in
+`0.411s`, and the XML records `failures="0"` at the root. **The runner was correct and the proof was
+broken** — the precise inversion the §41.13 stop list exists to catch before it is normalised.
+
+### 43.5 OWNER DECISION 2 — wrap the whole pipeline
+
+> **APPROVED.** **§41.8 is corrected to wrap the entire filtered pipeline:**
+>
+> ```powershell
+> $matched = @($root.testsuite | Where-Object { $_.name -ceq $name })
+> ```
+>
+> **The same array-safe rule applies to every filtered XML collection used by §41.10 and
+> `tools/test/verify_runner_failure.ps1`.**
+>
+> **Preserved exactly:** `-ceq` case-sensitive matching · **exactly-one** semantics · the real
+> `[xml]` parse under `$ErrorActionPreference = 'Stop'` · `exit 1` on failure · the five-part proof
+> of §41.8 · **inner `1` / outer `0`**.
+>
+> **Prohibited:** **no switch to XPath** · **no change to GUT's JUnit schema** · **no acceptance
+> condition weakened, dropped or made conditional.** The fix is one parenthesis moved, applied
+> consistently — **not a relaxation.**
+
+**What this does not license.** The verifier is still not permitted to become tolerant. It is *more*
+demanding after this change than before, because it can now actually distinguish a passing report
+from a failing one — which, as measured, it previously could not.
+
+### 43.6 The corrected diff shape, and the base
+
+**The expected VS0-T04 task shape becomes:**
+
+| | Before STOP-02 | **After STOP-02** |
+|---|---|---|
+| Additions | `263 A` | **`269 A`** |
+| Modifications | `1 M` | **`1 M`** — `docs/ENGINE.md`, unchanged |
+| Deleted · renamed · copied | `0 D · 0 R · 0 C` | **`0 D · 0 R · 0 C`** |
+| **Total changed versioned paths** | `264` | **`270`** |
+
+**`263 + 6 = 269`.** The derivation is in §42.6.1 and every component of it is independently checked
+during acceptance — the `259` by the pinned tree object, the `3` by §41.7, the `1` by §42.6 row 2 and
+the `6` by §42.6 row 3.
+
+**`T04_BASE` moves again.** This authority patch merges to `main`, so the resumed implementation's
+base is **the normal GitHub merge commit of this pull request**, supplied in the post-merge handoff.
+**It is deliberately not written here: this pull request has not merged, and a SHA written before a
+merge is a guess.** **Do not use the provisional `merge_commit_sha` GitHub exposes while a pull
+request is open.** The §41.4 gate applies verbatim.
+
+### 43.7 The frozen worktree — historical record
+
+The STOP-01 implementation worktree was **frozen as evidence** by §42.11 until the new base existed.
+Once the STOP-01 authority PR merged, the owner's post-merge instruction explicitly authorized
+recreating the implementation from the new base, and the stale worktree and its local branch were
+removed as part of that instruction.
+
+**Confirmed by the owner:** that removal was **authorized cleanup performed after the freeze had been
+lifted**, not an unauthorized action, and **not a breach of the §42.11 freeze.** The freeze did its
+job — it held the evidence for exactly as long as the evidence was load-bearing. **Recorded here so
+the sequence is not re-examined later as an anomaly.**
+
+### 43.8 What STOP-02 does not change
+
+**Unchanged, and re-stated because a scope correction is the easiest place to lose things:** the
+**engine pin** `4.7.2.stable.official.ed1daf0bf` · **GUT `v9.7.1`**, its tag commit, its `addons/gut`
+tree object, the canonical archive URL and the acquisition-and-checksum order · the vendored subtree,
+**unmodified**, and its byte-identical manifest parity requirement · the **three** committed
+`tools/test/` files — **STOP-02 adds no fourth** · the runner's phase design, the import command and
+the **`0` / `1` / `2` / `3`** exit-code contract · exit `2`'s zero side effects · the **five-part**
+§41.8 proof, in full · the deliberate-failure fixture and **inner `1` / outer `0`** · the **six**
+evidence artifacts — **STOP-02 adds no seventh** · the **eighteen** acceptance criteria and the
+**eighteen** stop conditions, both still eighteen · `project.godot` unchanged and GUT never enabled as
+an editor plugin · no `.gutconfig.json` anywhere · **`/tests/**` still read-only for source** · **D11
+and D12**, still open · **§39**, **§40** and the **§20** disposition.
+
+**No section is renumbered. No text inside §30 – §40 was edited. No ADR was changed. No accepted
+amendment was superseded** — the only supersession in this patch is the `.uid` note inside §42.6,
+which is R1 text from the immediately preceding patch and is annotated in place, append-only, with
+what survives it stated explicitly.
+
+### 43.9 Scope
+
+Changed: **§23 VS0-T04** (*Allowed paths*, *Forbidden paths*) · **§41.8** (the one-parenthesis
+correction and its measured explanation) · **§41.10** (the array-safe selection rule; **no condition
+altered**) · **§41.11** criterion **18** (the `269 A` / `270` shape and the precise `/tests/**` and
+`presentation/**` rules) · **§41.12** (the Run A transcript row — the exact six-path UID set) ·
+**§41.13** stop **18** · **§42.6** (row 3, the six-path table, and the append-only supersession of
+the R1 `.uid` note) · **§42.6.1** (the corrected shape, the ten outside paths, the derivation of the
+`6`, and the `addons/gut/**` counting caveat) · **§42.7** (precondition 5 and the metadata proof) ·
+**§42.11** (an append-only box recording the now-merged resumed `T04_BASE`) · **§43** (this section)
+· `CODEX_VS0_HANDOFF.md`.
+
+**One formatting defect carried in from the previous patch is repaired here.** The **§41.12** evidence
+table still held a **stray blank line between rows 4 and 5**, left behind when the *"no seventh
+artifact"* paragraph was moved out of the middle of the table during PR #13's R1 correction. The table
+therefore rendered as **two** tables, and `t04_gut_archive_sha256.txt` and `t04_vendor_manifest.txt`
+appeared under no header at all. **The blank line is removed. No row, artifact, count or wording
+changed — the table is still the same six artifacts, and there is still no seventh.**
+
+**This patch is documentation only.** It creates no runner, vendors nothing, downloads nothing, runs
+no test, touches no implementation file, **adds no `icon.svg.import` and adds no `.uid` file** — all
+seven are generated later, by the resumed implementation, from a real import run.
