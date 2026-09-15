@@ -1558,7 +1558,7 @@ proven here, once, and never asserted again.
 | **Required reading** | ADR-002 §2, §3 · §14 · **§41 in full** · **§42 in full** of this document |
 | **Dependencies** | VS0-T02, VS0-T03. **Both ACCEPTED 2026-09-14 (§39, §39.1, §39.2) — the dependency is fully discharged.** |
 | **Branch** | `feature/VS0-T04-gut-runner` (`CONVENTIONS.md` §5), created from **exactly `T04_BASE`** after the hard pre-write gate in **§41.4**. **Every scope and diff check uses `T04_BASE...HEAD`.** **`T04_BASE` was re-established after STOP-01 — use the value defined in §42.11, not the initial one (§41.4 supersession box)** |
-| **Allowed paths** | `/addons/gut/**` · `/tools/test/**` · `/docs/ENGINE.md` — **these three and nothing else** |
+| **Allowed paths** | `/addons/gut/**` · `/tools/test/**` · `/docs/ENGINE.md` · **`/icon.svg.import`** *(engine-generated import metadata, OWNER DECISION §42.6 — generated, never authored)* — **these four and nothing else** |
 | **Forbidden paths** | `core/**` `systems/**` `presentation/**` `data/**` · `/tests/**` — **the two accepted tests are READ-ONLY INPUTS to this task, not T04-owned source** (§41.7) · `/project.godot` — **GUT is never activated as an editor plugin** (§41.6) · `/.github/**` *(T01 and T14)* · `/docs/**` except `ENGINE.md` · `/tools/evidence/**` *(T15 — not a T04 output location, §41.12)* · **a `.gutconfig.json` anywhere in the repository** (§41.7) |
 | **Implementation requirements** | Vendor **exactly** the upstream `addons/gut/` subtree of **GUT `v9.7.1`**, unmodified, by the acquisition and checksum procedure in **§41.6** · record version, tag, tag commit, canonical archive URL and the **measured** archive SHA-256 in `docs/ENGINE.md` · **after vendoring there is no network access at build, run or test time, and CI never downloads GUT** · create **exactly** the three files named in **§41.7** · **implement the runner's import-preparation phase and the `3` exit code exactly as §42.5 specifies** · pass the **pin gate** in §41.6 · **wire both accepted tests into the runner and rewrite, weaken, skip, rename or move neither** |
 | **Tests** | The **negative runner proof** of §41.9 and §41.10: a deliberately failing fixture, driven through the same runner, proving a failing run is reported as a failure and exits non-zero. **A runner that has only ever returned success is not accepted.** |
@@ -3665,8 +3665,11 @@ and does not make this two test runs. **The arguments are listed one per line fo
   and not a caller's responsibility: `run_gut.ps1` is the public entry point, `.godot/` is generated
   cache and is gitignored, so **a fresh checkout has no class cache and a runner that assumes one is
   not self-contained** (§42.4).
-- The runner **propagates the engine's exit code verbatim** as its own. **It never translates failure
-  into success**, never clamps, never re-maps, and never exits `0` because it "handled" an error.
+- **Once the GUT test invocation begins, the runner propagates that GUT-test process's exit code
+  verbatim** as its own. **It never translates failure into success**, never clamps, never re-maps,
+  and never exits `0` because it "handled" an error. **"The engine's exit code" is not the rule and
+  never was safe as one:** Godot is *also* the import process (§42.5), and **an import process's
+  non-zero exit is deliberately mapped to runner `3`, never propagated verbatim.**
 - The runner **does not swallow `stdout` or `stderr`.** Both reach the console and the evidence
   transcript verbatim.
 - The runner **contains no test logic and no assertions.** It is an invoker.
@@ -3918,9 +3921,11 @@ That is what makes it an acceptance run rather than a demonstration: it proves t
 15. **Run B's inner run exits exactly `1`.**
 16. **Run B's XML contains the fixture's failing `<testcase>`** as specified in §41.10.
 17. **Run B's outer verifier exits `0`.**
-18. `git diff --name-status T04_BASE...HEAD` (§41.4) shows changes **only** under `/addons/gut/**`,
-    `/tools/test/**` and `/docs/ENGINE.md` — **zero entries under `/tests/**`, and `project.godot`
-    absent from the list.**
+18. `git diff --name-status T04_BASE...HEAD` (§41.4) shows changes **only** under
+    `/addons/gut/**`, `/tools/test/**`, `/docs/ENGINE.md` and **`/icon.svg.import`** — **zero
+    entries under `/tests/**`, and `project.godot` absent from the list.** The **expected shape is
+    exact**: **`263 A` · `1 M` · `0 D` · `0 R` · `0 C` — 264 changed versioned paths**, derived in
+    §42.6.1. **The sole modified pre-existing file is `docs/ENGINE.md`.**
 
 ### 41.12 Evidence, and the vendored-tree proof
 
@@ -3930,15 +3935,15 @@ That is what makes it an acceptance run rather than a demonstration: it proves t
 |---|---|
 | `evidence/gut_results.xml` | Run A's JUnit report |
 | `evidence/gut_runner_failure.xml` | Run B's inner JUnit report |
-| `evidence/t04_normal_run.txt` | Run A's **verbatim** `stdout` + `stderr` and its exit code, **plus the full import-preparation record**: confirmation that `.godot/` and `global_script_class_cache.cfg` were **absent before the run**, the exact import command, the import process's complete `stdout` + `stderr`, **`IMPORT exit=0`**, confirmation that the class cache **exists after preparation**, and the XML proof block's output (§41.8) |
+| `evidence/t04_normal_run.txt` | Run A's **verbatim** `stdout` + `stderr` and its exit code, **plus the full import-preparation record**: confirmation that `.godot/` and `global_script_class_cache.cfg` were **absent before the run**, the exact import command, the import process's complete `stdout` + `stderr`, **`IMPORT exit=0`**, confirmation that the class cache **exists after preparation**, the **import-metadata proof of §42.7** — `icon.svg.import` **absent before** the run and **present and non-empty after** it, its size or hash, the `git status` path proof identifying it as exactly the authorized metadata output, and **confirmation that no other unexpected versioned path was produced** — and the XML proof block's output (§41.8) |
 | `evidence/t04_failure_probe.txt` | Run B's **verbatim** `stdout` + `stderr`, the **import-preparation output and import exit code**, the **inner** GUT exit code, and the **outer** verifier result |
+
+| `evidence/t04_gut_archive_sha256.txt` | The canonical URL and the **measured** pre-extraction SHA-256 |
+| `evidence/t04_vendor_manifest.txt` | The vendored-tree manifest below |
 
 **No seventh artifact is added.** The import record belongs inside the two run transcripts, because
 it is part of what those runs did — a separate file would let a run's transcript and its own
 bootstrap drift apart.
-| `evidence/t04_gut_archive_sha256.txt` | The canonical URL and the **measured** pre-extraction SHA-256 |
-| `evidence/t04_vendor_manifest.txt` | The vendored-tree manifest below |
-
 **`/evidence/` is gitignored at the repository root** — T03 made that anchoring exact (§40.6). CI does
 not exist until T14, so evidence is attached to the PR **by hand, verbatim, not summarized.**
 
@@ -4025,8 +4030,9 @@ prove what was *committed*. The manifest closes that gap:
     prompt under any circumstances**, and verbatim propagation of GUT's `0` / `1` thereafter. If
     actual PowerShell or GUT behaviour forbids it, **report it; do not substitute another parameter
     design, a different exit code, a third mode or an extra switch.**
-18. Any required change falls **outside the three Allowed paths**, or **network access is required at
-    any point after vendoring**.
+18. Any required change falls **outside the four Allowed paths** · **`--import` produces any new or
+    modified non-ignored versioned path other than `/icon.svg.import`** (§42.6) · or **network access
+    is required at any point after vendoring**.
 
 ### 41.14 Scope
 
@@ -4223,10 +4229,49 @@ whose entire purpose is that distinction, would prove nothing.
 *"once Godot is invoked"* is withdrawn as imprecise: **Godot is also invoked for the import**, and
 that invocation's code is never the runner's.
 
-### 42.6 Generated-cache scope
+### 42.6 Generated-output scope
 
-The import phase is permitted to generate **`.godot/**` and nothing else** — normal Godot cache.
-**`.godot/` stays gitignored and uncommitted.**
+**An earlier draft of this section said the import phase may generate `.godot/**` *"and nothing
+else"*. That was too strict, and it contradicted Godot's documented import model** — it would have
+turned the engine's own correct behaviour into an immediate second STOP. Corrected by owner decision.
+
+**Godot's import model, and the state of this repository.** Importing an asset writes a sidecar
+**`<asset>.import`** *beside the source asset*, outside `.godot/`, and those sidecars are meant to be
+committed. This repository already agrees: its `.gitignore` ignores `.godot/` and carries the line
+**`# Godot *.import files are intentionally committed.`** — and ignores no `*.import` pattern.
+Meanwhile `project.godot` declares `config/icon="res://icon.svg"`, `icon.svg` is tracked, and
+**`icon.svg.import` is absent from the versioned tree.** A clean import therefore *will* create it.
+
+**OWNER DECISION — exactly one additional versioned path is authorized for resumed VS0-T04:**
+
+> **`/icon.svg.import`**
+
+It is **engine-generated import metadata for the already accepted T02 project icon**. It is **not
+hand-authored**. It **must** be produced by the pinned engine **`4.7.2.stable.official.ed1daf0bf`**
+during the fresh-cache `--import` preparation of §42.7. **T04 must not fabricate it, copy it from
+another project, pre-seed it, or edit it after generation** — and the committed file must be
+**byte-identical** to the one that import run produced.
+
+**The complete generated-output contract. The import phase may produce exactly two things:**
+
+| # | What | Disposition |
+|---|---|---|
+| **1** | **`.godot/**`** | **Ignored generated cache. Never committed.** |
+| **2** | **`/icon.svg.import`** | **The single authorized versioned import-metadata artifact. Committed by T04.** |
+
+**Any other new or modified non-ignored, versioned path produced by `--import` is a STOP** — including
+but not limited to: **another unexpected `*.import`** · **any `*.uid` not already present in
+`T04_BASE`** · a changed `.tscn` · a changed `.tres` · a changed `project.godot` · any source file ·
+any file outside the corrected Allowed paths. **Nothing beyond the two rows above is pre-authorized.
+Measure first; stop if anything else appears.**
+
+> **On `.uid` sidecars specifically.** Godot 4.4+ supports `.uid` sidecars for scripts and shaders.
+> **Do not assume `--import` will create any here, and no `.uid` path is pre-authorized.** If the
+> resumed import creates a new non-ignored `.uid` outside the exact authorized diff, **STOP and
+> report.** This is deliberately measurement-first: pre-authorizing metadata nobody has observed is
+> how an unbounded write scope is acquired one plausible file at a time.
+
+**Rules that did not change:**
 
 - **Do not hand-write, patch, repair or pre-seed `global_script_class_cache.cfg`. Godot owns it.**
 - **Do not parse or reproduce Godot's cache format in project code.** The only project-side check is
@@ -4234,10 +4279,43 @@ The import phase is permitted to generate **`.godot/**` and nothing else** — n
   `class_name`s are actually present** — and it already does, which is how STOP-01 was detected.
 - **Do not commit the cache** to make CI faster. A committed cache is a stale cache, and it would
   disguise exactly the failure this section exists to surface.
+- **Do not add any other generated file merely to make T04 pass** — that converts a bootstrap problem
+  into a permanent, invisible commitment.
 
-**If `--import` requires or produces a tracked modification, or creates a non-ignored file outside
-T04's Allowed paths: STOP and report.** **Do not add the generated file merely to make T04 pass** —
-that converts a bootstrap problem into a permanent, invisible commitment.
+**The vendored subtree stays immutable across the import.** After the import run and before
+acceptance, **recompute the vendor manifest (§41.12)**; it must remain **byte-identical** to the
+manifest of the extracted upstream `v9.7.1` `addons/gut` payload. **If the import modifies, adds or
+deletes anything inside `addons/gut/**`: STOP.** **Do not commit the mutation, and do not refresh the
+upstream manifest to match it** — a manifest edited to match an observation proves nothing, exactly as
+an expectation edited to match an observation proves nothing (§41.10).
+
+#### 42.6.1 The resumed task's exact diff shape
+
+| Component | Count | Source |
+|---|---|---|
+| Vendored GUT files under `addons/gut/**` | **259** | The `v9.7.1` payload, **fixed by the pinned tree object `5d6893836af4917ee62b1a395125a7530b1f239d`** (§41.5) |
+| T04-authored files under `tools/test/**` | **3** | §41.7 |
+| Engine-generated import metadata | **1** | `/icon.svg.import`, this section |
+| **Total additions** | **263 `A`** | |
+| Modified pre-existing files | **1 `M`** | **`docs/ENGINE.md`, and nothing else** |
+| Deleted · renamed · copied | **0 `D` · 0 `R` · 0 `C`** | |
+| **Total changed versioned paths** | **264** | |
+
+**The added paths outside `addons/gut/` are exactly four:** `tools/test/run_gut.ps1` ·
+`tools/test/verify_runner_failure.ps1` · `tools/test/fixtures/test_deliberate_failure.gd` ·
+`icon.svg.import`.
+
+**The `259` is not remembered, it is determined.** Stop 3 pins the `addons/gut` tree object, so the
+payload's file count is fixed by the same check that pins its content — **if the re-measured count is
+not 259, the tree object check has already failed and T04 has already stopped.**
+
+**`icon.svg` is the only tracked importable asset in `T04_BASE`** — the versioned tree outside `docs/`
+holds `icon.svg`, two `.tscn` scenes, five `.gd` scripts, `project.godot`, `.gitignore` and
+`.gitattributes`. That is *why* a single `.import` sidecar is the expected outcome, and why anything
+else appearing is a genuine surprise worth stopping for.
+
+**If `/icon.svg.import` already exists at resumed implementation time** for a reason not represented
+by `T04_BASE`: **STOP** — `main` has drifted and the base semantics of §42.11 no longer hold.
 
 ### 42.7 The fresh-cache acceptance proof
 
@@ -4250,7 +4328,8 @@ Immediately before the final Run A acceptance execution:
 2. **Delete the generated `.godot/` directory** from the T04 worktree. **This deletion is permitted
    because `.godot/` is generated cache, not source.**
 3. **Confirm `global_script_class_cache.cfg` is absent.**
-4. Execute **only** this, and nothing between step 3 and it:
+4. **Confirm `icon.svg.import` is absent** (§42.6).
+5. Execute **only** this, and nothing between step 4 and it:
 
    ```powershell
    tools/test/run_gut.ps1 -GodotPath '<exact pinned console exe>'
@@ -4262,6 +4341,19 @@ nothing about the runner.
 
 The runner itself must then **perform `--import`**, report **`IMPORT exit=0`**, **recreate the class
 cache**, **invoke GUT**, **produce `gut_results.xml`**, and **satisfy the §41.8 XML proof**.
+
+**And the import-metadata proof, in the same run.** After the import succeeds:
+
+- **`.godot/global_script_class_cache.cfg` exists.**
+- **`icon.svg.import` exists** and is **non-empty**.
+- **`git status` identifies `icon.svg.import` as exactly the authorized generated versioned metadata
+  path** — by path, not by pattern.
+- **No other new or modified non-ignored versioned path was produced** (§42.6).
+
+**`icon.svg.import` is generated by this run and by no other command.** It is not produced by a
+separate hand-run `--import`, not copied, not pre-seeded, and **not edited afterwards**: the file
+committed by T04 must be **byte-identical** to the one this pinned import run wrote. A metadata file
+whose provenance is a person rather than the pinned engine is not evidence of anything.
 
 **A runner that only works on a machine that has already imported once is not accepted.** This is the
 same standard already applied to the negative proof: **a capability that has never been exercised
@@ -4278,6 +4370,10 @@ drift apart. The required additions are listed in §41.12.
 T04's implementation **may add** to the existing GUT record that **GUT `v9.7.1` requires Godot
 class-name import on a fresh checkout**, and that the project runner performs
 `Godot 4.7.2 --headless --path . --import` **before each GUT CLI invocation**.
+
+It **may also record** that the fresh import **creates or refreshes the project import cache**, that
+**`icon.svg.import` is the committed import metadata for the existing `icon.svg`**, and that it was
+**generated by the pinned 4.7.2 import run** (§42.6, §42.7).
 
 **Do not modify the engine pin. Do not modify `project.godot`.** `docs/ENGINE.md` is not touched by
 this authority patch — the addition is made during implementation, from a real run.
@@ -4357,5 +4453,34 @@ interface misuse and its zero side effects · the Allowed paths · `/tests/**` r
 `project.godot` and `.gutconfig.json` prohibitions · **D11 and D12**, still open · **§39**, **§40.7**
 and the **§20** disposition.
 
+**Second commit on the same PR — independent-review correction R1 (2026-09-15):** **§41.7** — the
+broad *"propagates the engine's exit code"* bullet replaced with *"once the GUT test invocation
+begins"*, removing a real contradiction with §42.5 · **§23 VS0-T04** *Allowed paths*, now **four** ·
+**§41.11** criterion **18** (the fourth path and the exact **`263 A` / `1 M`** shape) · **§41.12** the
+Run A transcript row (the import-metadata proof) · **§41.13** stop **18** (any other generated
+versioned path) · **§42.6**, rewritten as a **generated-OUTPUT** contract with the owner-approved
+`/icon.svg.import` exception, the STOP list for anything else, the `.uid` measurement-first note and
+the vendored-tree parity requirement · **new §42.6.1** (the derived diff shape) · **§42.7** (two more
+preconditions and the import-metadata proof) · **§42.9** · this paragraph · `CODEX_VS0_HANDOFF.md`. **One formatting defect from the first commit
+is also repaired here:** the *"no seventh artifact"* note had been inserted **between rows 4 and 5 of the
+§41.12 evidence table**, splitting it. It now follows the complete six-row table. **No row, artifact or
+wording changed — only the paragraph's position.**
+
+**Why R1 was needed, stated plainly.** §42.6 originally read *"`.godot/**` and nothing else"*. Godot
+writes a **`<asset>.import` sidecar beside the source asset**, outside `.godot/`; this repository's
+`.gitignore` already says *"Godot `*.import` files are intentionally committed"*; `icon.svg` is
+tracked and **`icon.svg.import` is not**. The first correct import would therefore have produced a
+legitimate, expected file that the authority called a STOP. **The fix is one named path, generated by
+the pinned engine and proven to be its output — not a relaxed rule.**
+
+**R1 changes no measured value and no other rule.** GUT `v9.7.1`, the tag commit, the tree object, the
+archive URL, the checksum procedure, the runner's phase design, the import command, the fresh-cache
+acceptance, the class-cache check, the **0 / 1 / 2 / 3** table, exit `2`'s zero side effects, evidence
+creation after import, both locked GUT command lines, the **§41.8** XML membership proof, the negative
+fixture, **inner `1` / outer `0`**, the **six** evidence artifacts, `/tests/**` read-only, the
+`project.godot` and `.gutconfig.json` prohibitions, the **18** stop conditions, **D11 / D12**, every
+ADR and all of §39 – §40 are **exactly as they stood at the first commit.**
+
 **This patch is documentation only.** It creates no runner, vendors nothing, downloads nothing, runs
-no test, touches no implementation file, and does not modify the stopped T04 worktree.
+no test, touches no implementation file, **adds no `icon.svg.import`** — that file is generated later,
+by the resumed implementation — and does not modify the stopped T04 worktree.
