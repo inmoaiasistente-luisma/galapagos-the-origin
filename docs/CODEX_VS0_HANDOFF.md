@@ -9,14 +9,17 @@
              A-04 (2026-09-13) — PR-enforcement semantics corrected. The guarantee is
              ASSOCIATION with a PR, not rejection of every push. T01R test E1 withdrawn,
              replaced by E1A/E1B. See spec §33 and ADR-002 §1.4.
-    TASK STATUS: ACCEPTED — VS0-T01, VS0-T01R, VS0-T02. Spec §39 is the acceptance ledger
-                 and is authoritative on task status. T01/T01R detail §37; T02 detail §38
-                 and §39.1 (owner decisions: game version `0.1.0`, window not resizable
-                 in VS0).
-                 NEXT: VS0-T03 — the last task blocking VS0-T04. Its packet was corrected
-                 in spec §40; read the VS0-T03 DIRECTORY MANIFEST in spec §23 and build
-                 from it, not from the §5 tree. §5 is the VS0 end-state SHAPE, not a T03
-                 file list.
+    TASK STATUS: ACCEPTED — VS0-T01, VS0-T01R, VS0-T02, VS0-T03. Spec §39 is the
+                 acceptance ledger and is authoritative on task status. T01/T01R detail
+                 §37; T02 detail §38 and §39.1 (owner decisions: game version `0.1.0`,
+                 window not resizable in VS0); T03 detail §39.2, and its preflight
+                 corrections and owner decisions in §40.
+                 NEXT: VS0-T04 — GUT vendoring and the headless test runner. Its packet
+                 was corrected in spec §41, which also RESOLVES the GUT release to
+                 v9.7.1. Read §41 IN FULL before starting: it is not background, it is
+                 the contract. Two facts to internalise before you read anything else —
+                 T04's write scope does NOT include /tests/**, and a green exit code is
+                 NOT acceptance.
     AUTHORITY LEVEL: 4 (operational handoff — subordinate to VS0_FOUNDATION_SPEC.md)
     FOR: Codex (implementation agent)
     SCOPE: VS0 only
@@ -55,7 +58,8 @@ the task, not from memory.
 | Renderer | **Compatibility** (`gl_compatibility`) |
 | Virtual resolution | **320 × 180**, integer scaling, centred, Nearest filtering |
 | World tile | **16 × 16** |
-| Test framework | **GUT**, vendored at `addons/gut/`, matching Godot 4.7, highest qualifying patch |
+| Test framework | **GUT `v9.7.1`**, vendored at `addons/gut/`. Resolved mechanically by the §14 rule — **do not re-choose it, and never use GitHub's `/releases/latest`, which returns a Godot 4.6-line release** (spec §41.4) |
+| GUT tag commit | **`aeb5d4f3f7f0a6c9b5e178876d6c99b791fda605`** — verify it before vendoring |
 | Autoloads in VS0 | **Exactly four**, in order: `EventBus` → `GameState` → `RngService` → `SaveManager` |
 | Save format | **JSON**, `save_version: 1` |
 | Default locale | `es`, fallback `en` |
@@ -91,8 +95,8 @@ Ten waves. Do not start a wave until the previous one is merged green.
 |---|---|---|
 | **A** | T01 Repository bootstrap | Repo, LFS, ignore rules, README, PR template. **No workflow file, no required status checks — deferred to T14 by owner decision.** **Files are on `main`. T01 was ACCEPTED by the owner on 2026-09-14, once T01R proved enforcement (spec §37).** |
 | **A′** | **T01R Enforcement remediation** | The Phase-1 **ruleset**, and **live proof** that direct push, force-push and deletion of `main` are rejected and that a PR merges with 0 approvals. **Blocked every later wave; COMPLETE and ACCEPTED 2026-09-14 — the block is discharged (spec §37).** |
-| **B** | T02 Godot baseline · T03 Folder skeleton | 4.7.2 pinned, pixel contract, folder tree. **T02 ACCEPTED 2026-09-14 (spec §39). T03 outstanding — directory topology and ownership markers, plus the two explicitly authorized exceptions in the binding §23 packet (one test file, one `.gitignore` line). Build from the §23 manifest; see spec §40.** |
-| **C** | T04 GUT | Headless test runner, gate 5 |
+| **B** | T02 Godot baseline · T03 Folder skeleton | 4.7.2 pinned, pixel contract, folder tree. **BOTH ACCEPTED 2026-09-14 — T02 in spec §39.1, T03 in spec §39.2. The wave is closed and nothing in it is reopened.** T03 delivered the directory topology, the 35 three-line ownership markers, `tests/unit/test_folder_contract.gd` (written, committed, **never yet executed**) and the single authorized `.gitignore` line change. |
+| **C** | T04 GUT | Headless test runner, gate 5. **NEXT. Its dependency on T02 and T03 is fully discharged; it is blocked only by its own authority preflight (spec §41), and by nothing else.** T04 vendors **GUT `v9.7.1`**, builds the three files under `tools/test/`, and **executes the two accepted tests for the first time in the project's history** — `tests/canon/test_project_settings.gd` and `tests/unit/test_folder_contract.gd`, both **read-only inputs** it may not rewrite. Acceptance requires the JUnit XML to **name both of them and report them passing**; exit `0` on its own is not acceptance (spec §41.7). |
 | **D** | T05 Convention lint · T06 Layer lint · T07 Validator framework | Gates 1, 2, 3 (partial) |
 | **E** | T08 Canon Registry + generators | Gates 3, 4 complete |
 | **F** | T09 EventBus + GameState · T12 Localization | First two autoloads, ES/EN |
@@ -191,7 +195,11 @@ every time.
 3. Two accepted documents contradict each other.
 4. A canon rule cannot be implemented as specified.
 5. The installed editor is not `4.7.2-stable`, or editor and templates differ.
-6. No GUT release matches Godot 4.7 — **the engine pin wins.**
+6. No GUT release matches Godot 4.7 — **the engine pin wins.** For VS0-T04 specifically, the full
+   stop list is spec §41.12, and it is longer than this one: a later qualifying 9.7.x patch, a tag
+   commit mismatch, a vendored subtree that would have to be patched, a needed change to
+   `project.godot` or to `/tests/**`, a suite that exits `0` without proving both accepted tests ran,
+   a failure probe that does not return exactly `1`. **Do not improvise around a stop.**
 7. A required 2D feature is missing under the Compatibility renderer.
 8. The task would require an upward layer dependency, or a **layer-lint exception**.
 9. The task would require a **fifth autoload**.

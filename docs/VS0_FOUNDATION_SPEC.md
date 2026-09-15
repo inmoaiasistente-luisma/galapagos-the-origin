@@ -23,9 +23,10 @@
                 A-07 (2026-09-13) — MICRO. Post-merge SHA semantics: T01R final reporting
                 records the main SHA observed at report time; no fixed-SHA equality. E4
                 condition 3 restated temporally. §35 preserved, annotated. See §36.
-    TASK STATUS: See §39 — VS0 task acceptance ledger. ACCEPTED: VS0-T01, VS0-T01R, VS0-T02.
-                 Status records, not amendments. T01/T01R detail §37 · T02 detail §38 and §39.1.
-                 VS0-T03 preflight authority corrections and owner decision: see §40.
+    TASK STATUS: See §39 — VS0 task acceptance ledger. ACCEPTED: VS0-T01, VS0-T01R, VS0-T02,
+                 VS0-T03. NEXT: VS0-T04. Status records, not amendments. T01/T01R detail §37 ·
+                 T02 detail §38 and §39.1 · T03 authority corrections and owner decision §40 ·
+                 T04 authority preflight corrections and GUT resolution §41.
     DERIVES FROM: Master Canon v1.1 (ACCEPTED) · ADR-001 … ADR-008 (ACCEPTED) ·
                   ARCHITECTURE.md · CONVENTIONS.md · STATE_OWNERSHIP.md ·
                   CANON_CONFLICT_RESOLUTION.md (all ACCEPTED)
@@ -271,9 +272,14 @@ res://
 │   ├── lint/
 │   │   ├── convention_lint.gd
 │   │   └── layer_lint.gd
-│   └── evidence/
-│       ├── smoke_scene_load.gd
-│       └── capture_boot_evidence.gd
+│   ├── evidence/
+│   │   ├── smoke_scene_load.gd
+│   │   └── capture_boot_evidence.gd
+│   └── test/                         # T04 — project-owned test tooling
+│       ├── run_gut.ps1               # the public local runner
+│       ├── verify_runner_failure.ps1 # negative proof: the runner can fail
+│       └── fixtures/
+│           └── test_deliberate_failure.gd   # NEVER under tests/ — see §41.8
 ├── tests/
 │   ├── unit/
 │   ├── integration/
@@ -285,6 +291,13 @@ res://
     ├── adr/ archive/ canon/
     └── (existing accepted documents)
 ```
+
+**`tools/ci/` is deliberately absent from this tree.** It appears in **VS0-T14's *Allowed paths***,
+but **no accepted requirement anywhere obliges T14 to put a file there** — T14's obligations are the
+workflow under `/.github/workflows/**` and `export_presets.cfg`. **An allowed path is permission, not
+a promise.** This tree therefore does not list `tools/ci/`, and **no file is invented merely to make
+the directory exist.** If a later T14 preflight establishes a real requirement for a file there, the
+tree is corrected at that point, by that preflight.
 
 **Two folders that do not exist yet and must not be created in VS0:** `systems/<anything>/` beyond
 the empty root, and `content/<anything>/` beyond the empty root. The first system folder is created
@@ -702,10 +715,12 @@ means auditing every prompt. It is twenty lines now.
 |---|---|
 | Framework | **GUT**, approved (Final §6). No alternative is evaluated. |
 | Location | `addons/gut/`, **vendored**, committed |
-| Version | The GUT release whose declared compatibility matches **Godot 4.7**. If several qualify, take the **highest patch**. Vendored, never downloaded by CI. Recorded in `docs/ENGINE.md`. **This is a rule, not a choice.** |
+| Version | The GUT release whose declared compatibility matches **Godot 4.7**. If several qualify, take the **highest patch**. Vendored, never downloaded by CI. Recorded in `docs/ENGINE.md`. **This is a rule, not a choice.** **Mechanically resolved on 2026-09-14 to `v9.7.1` — see §41.4, which also records the evidence and the trap that made the obvious shortcut wrong.** |
 | Network | **None** at build or run time |
 | Execution | Headless CLI, JUnit XML output attached as a CI artifact |
-| Directories | `tests/unit/`, `tests/integration/`, `tests/canon/` |
+| Directories | `tests/unit/`, `tests/integration/`, `tests/canon/` — **these three and no others** (§41.6) |
+| CLI entry point | `addons/gut/gut_cmdln.gd`, invoked directly. **GUT is never activated as an editor plugin in `project.godot`** (§41.5). |
+| Runner | `tools/test/run_gut.ps1`, **T04-owned** (§41.6) |
 
 **VS0 pin gate (ADR-002 §3):** the pinned GUT release must run headless against **Godot 4.7.2-stable**
 before the GUT pin is final. On incompatibility, **the engine pin wins** — 4.7.2 does not move — and
@@ -942,7 +957,7 @@ Every VS0 pull request attaches, automatically, from CI:
 | `layer_lint.txt` + `layer_graph.json` | gate 2 | No upward dependency edge exists |
 | `validation_report.json` | gate 3 | Source data is schema-, semantically- and canon-valid |
 | `generated_diff.txt` | gate 4 | Committed generated artifacts match a fresh regeneration |
-| `gut_results.xml` (JUnit) | gate 5 | Every test, with names, ran and passed |
+| `gut_results.xml` (JUnit) | gate 5 | Every test, with names, ran and passed. **The names are the proof, not decoration:** acceptance parses this file and requires the accepted test scripts **by exact path** (§41.7) |
 | `save_migration_report.txt` | gate 8 | Every golden fixture migrates to current with invariants intact |
 | `schema_hash.txt` | gate 8b | The persisted schema hash, and whether it changed |
 | `smoke_scene_load.txt` | gate 7 | Every scene loads without error |
@@ -977,19 +992,26 @@ checklist for acceptance, not a summary.
    default-branch safeguard makes the ruleset's deletion behaviour unisolatable (§35).**
    *(Required status checks are Phase 2 — criterion 24.)*
 2. `.gitattributes` declares Git LFS for `*.png`, `*.ogg`, `*.wav`, `*.aseprite`.
-3. `.gitignore` excludes `.godot/`, `export/`, `evidence/`, `*.tmp`; `*.import` files **are**
-   committed.
+3. `.gitignore` excludes `.godot/`, `export/`, **`/evidence/` — root-anchored**, `*.tmp`;
+   `*.import` files **are** committed. *(The anchoring is the one authorized T03 modification, OWNER
+   DECISION C8, §40.6: unanchored `evidence/` also ignored `tools/evidence/`, which is T15's tooling
+   and must be committed.)*
 
 **Engine and project**
-4. `docs/ENGINE.md` records the exact Godot version, the export-template version, the GUT version,
-   and SHA-256 checksums for each.
+4. `docs/ENGINE.md` records the exact Godot version, the export-template version and SHA-256
+   checksums for each; and, for GUT, the **version, tag, tag commit, canonical archive URL, measured
+   archive SHA-256 and vendored path** (§41.5). **Every checksum is measured from the artifact
+   actually used — never copied from a document.**
 5. The project boots headless on the owner machine **and** on the CI runner.
 6. A canon test asserts every `project.godot` value in §6.2 and §6.3 — renderer, viewport, stretch,
    scale mode, filter, snapping, main scene.
 7. The renderer feature verification (§6.2) is recorded in `docs/ENGINE.md` with screenshots.
 
 **Architecture**
-8. The folder tree in §5 exists, each folder carrying a one-line `README.md` naming owner and layer.
+8. The folder tree in §5 exists, each folder in the VS0-T03 directory manifest carrying a
+   `README.md` ownership marker of **exactly three lines** — `Layer:` / `Owner:` / `Never:` — with the
+   exact values the manifest gives (§23). **This corrects a stale "one-line" summary; the accepted
+   T03 contract has always been three lines, and T03 shipped it that way (§39.2).**
 9. Exactly **four** autoloads are registered, in the order in §7.
 10. The layer lint runs, reports a clean graph, and **has been proven to fail** on a deliberately
     introduced upward edge (the negative test is committed as a test, not performed by hand).
@@ -1067,7 +1089,7 @@ escalation suggestions. They are halts.
 | 2 | This specification contradicts an ADR, `ARCHITECTURE.md`, `CONVENTIONS.md` or the Master Canon |
 | 3 | Two accepted documents contradict each other |
 | 4 | A canon rule cannot be implemented as specified |
-| 5 | The pinned Godot version and the pinned GUT version are incompatible |
+| 5 | The pinned Godot version and the pinned GUT version are incompatible. **The engine pin wins** (§14, §41.5). For VS0-T04 the complete stop list is **§41.12** |
 | 6 | A required 2D feature is missing under the Compatibility renderer |
 | 7 | Implementing a task as written would require an upward layer dependency |
 | 8 | A task would require a fifth autoload |
@@ -1530,16 +1552,18 @@ proven here, once, and never asserted again.
 | Field | Content |
 |---|---|
 | **Objective** | Vendor the pinned GUT release and make `run tests headless → JUnit XML → exit code` work. |
-| **Required reading** | ADR-002 §2, §3 · §14 of this document |
-| **Dependencies** | VS0-T02, VS0-T03 |
-| **Allowed paths** | `/addons/gut/**` `/tests/**` `/tools/test/**` `/docs/ENGINE.md` |
-| **Forbidden paths** | `core/**` `systems/**` `presentation/**` `data/**` |
-| **Implementation requirements** | Select the GUT release **by the rule in §14** — matching Godot **4.7**, highest qualifying patch — and record it in `docs/ENGINE.md` with a checksum · vendor it committed, with **no network access at build or run time** · a headless runner script producing JUnit XML · the test directories from §14 · run the tests committed by T02 and T03 — **`tests/canon/test_project_settings.gd` already exists on `main` from T02, and `tests/unit/test_folder_contract.gd` already exists on `main` from T03: T04 wires both into the runner and executes them, and rewrites neither** |
-| **Tests** | A self-test asserting the runner reports a **deliberately failing** test as a failure and returns non-zero. A runner that can only report success is not a runner. |
-| **Acceptance criteria** | Headless run produces JUnit XML and a correct exit code · T02 and T03 tests pass · the deliberate-failure self-test proves failures are detected · GUT version and checksum recorded |
+| **Required reading** | ADR-002 §2, §3 · §14 · **§41 in full** of this document |
+| **Dependencies** | VS0-T02, VS0-T03. **Both ACCEPTED 2026-09-14 (§39, §39.1, §39.2) — the dependency is fully discharged.** |
+| **Branch** | `feature/VS0-T04-gut-runner` (`CONVENTIONS.md` §5) |
+| **Allowed paths** | `/addons/gut/**` · `/tools/test/**` · `/docs/ENGINE.md` — **these three and nothing else** |
+| **Forbidden paths** | `core/**` `systems/**` `presentation/**` `data/**` · `/tests/**` — **the two accepted tests are READ-ONLY INPUTS to this task, not T04-owned source** (§41.6) · `/project.godot` — **GUT is never activated as an editor plugin** (§41.5) · `/.github/**` *(T01 and T14)* · `/docs/**` except `ENGINE.md` · `/tools/evidence/**` *(T15 — not a T04 output location, §41.11)* · **a `.gutconfig.json` anywhere in the repository** (§41.6) |
+| **Implementation requirements** | Vendor **exactly** the upstream `addons/gut/` subtree of **GUT `v9.7.1`**, unmodified, by the acquisition and checksum procedure in **§41.5** · record version, tag, tag commit, canonical archive URL and the **measured** archive SHA-256 in `docs/ENGINE.md` · **after vendoring there is no network access at build, run or test time, and CI never downloads GUT** · create **exactly** the three files named in **§41.6** · pass the **pin gate** in §41.5 · **wire both accepted tests into the runner and rewrite, weaken, skip, rename or move neither** |
+| **Tests** | The **negative runner proof** of §41.8 and §41.9: a deliberately failing fixture, driven through the same runner, proving a failing run is reported as a failure and exits non-zero. **A runner that has only ever returned success is not accepted.** |
+| **Acceptance criteria** | The complete list in **§41.10**. In summary: `v9.7.1` provenance and the **measured** archive SHA-256 recorded in `docs/ENGINE.md` · the vendored subtree proven identical to the upstream payload (§41.11) · pin gate passed against `4.7.2.stable.official.ed1daf0bf` · normal suite exits `0` and writes JUnit XML · **both accepted tests proven to have actually executed and passed, by parsing that XML** (§41.7) · the inner failure run exits `1` with a mechanically-parsed JUnit failure · the outer verifier exits `0` · no accepted test altered · no `project.godot` change |
+| **Evidence** | The six artifacts listed in **§41.11**, all written under the gitignored root `/evidence/` and **none of them committed**. |
 | **Persistence impact** | None |
-| **Parallelization** | Blocks the T05/T06/T07 wave |
-| **Stop condition** | No GUT release satisfies the §14 rule against Godot 4.7.2 — **the engine pin wins; stop and report.** Do not substitute another framework, and do not download GUT in CI as a workaround. |
+| **Parallelization** | Alone in wave C. Blocks the T05/T06/T07 wave |
+| **Stop conditions** | The complete list in **§41.12**. Every entry is a hard stop, including the original one: no GUT release satisfies the §14 rule against Godot 4.7.2 — **the engine pin wins; stop and report.** Do not substitute another framework, do not patch the vendored subtree, and do not download GUT in CI as a workaround. **Do not improvise around a stop.** |
 
 ---
 
@@ -1830,6 +1854,16 @@ Each wave is safe to run concurrently, **one writing agent per git worktree**, w
 | `tests/canon/test_project_settings.gd` | T02, T04 | **T02 writes it** (unexecutable until GUT lands); **T04 runs it.** Different waves, disjoint operations — the **first** of the two authorized exceptions to T04's ownership of `/tests/**`. |
 | `tests/unit/test_folder_contract.gd` | T03, T04 | **T03 writes it** (unexecutable until GUT lands); **T04 runs it.** Different waves, disjoint operations — the **second** authorized exception to T04's ownership of `/tests/**`. |
 
+**One phrase in the two rows above is superseded, and is left in place deliberately.** Both rows
+call `/tests/**` *"T04's ownership"*. That was true when the packets were written; it is **no longer
+true**. Under the corrected T04 write scope (§23, §41.6) **T04 has no write authority anywhere in
+`/tests/**`** — it is a **reader and executor** of the two accepted tests, nothing more. The rows are
+not rewritten because the exceptions they describe have **already been exercised and accepted**
+(T02 in §39.1, T03 in §39.2); rewriting an accepted packet's cross-reference would falsify the
+record rather than correct it. **The operational content of both rows — T02/T03 write, T04 runs —
+is unchanged and correct.** The same superseded phrase appears in the *Allowed paths* rows of the
+**§23 VS0-T02** and **§23 VS0-T03** packets and is left there for the same reason.
+
 > The point of the two discovery mechanisms is small and worth stating plainly: **a registration list
 > in a shared file is a merge conflict generator and a coordination tax on every future task.** File
 > discovery removes both, permanently, for the cost of one scan at build time.
@@ -1846,8 +1880,8 @@ throughout — the property that makes every later bisect meaningful.
 | 1 | T01 Repository bootstrap | — (files only. **Enforcement unproven — see row 1R**) |
 | **1R** | **T01R Enforcement remediation** | **Phase-1 enforcement proven live: E1A unassociated push rejected · E2 PR merged with 0 approvals (`headRefOid != mergeCommit`) · E3 force-push rejected · E4A + E4B deletion protection · E5 `bypass_actors: []`** — **PROVEN AND ACCEPTED 2026-09-14 (§37)** |
 | 2 | T02 Godot baseline | Project boots headless — **ACCEPTED 2026-09-14 (§39)** |
-| 3 | T03 Folder skeleton | **The folder manifest, verified by the PR's static checks.** `tests/unit/test_folder_contract.gd` is **committed here and first executed in T04** — GUT does not exist before it (§23, §25) |
-| 4 | T04 GUT | Gate 5 live |
+| 3 | T03 Folder skeleton | **The folder manifest, verified by the PR's static checks** — **ACCEPTED 2026-09-14 (§39, §39.2)**. `tests/unit/test_folder_contract.gd` is **committed here and first executed in T04** — GUT does not exist before it (§23, §25) |
+| 4 | T04 GUT | **Gate 5 live** — and the first merge at which **either** accepted test has ever been executed. The gate is green only when the JUnit XML proves **both** of them ran and passed (§41.7) |
 | 5 | T05 Convention lint | **Gate 1 live** |
 | 6 | T06 Layer lint | **Gate 2 live** |
 | 7 | T07 Validator framework | Gate 3 partial (schema + semantic) |
@@ -1881,7 +1915,7 @@ otherwise have to choose.
 | # | Decision Codex would otherwise make | Where it is already made |
 |---|---|---|
 | 1 | Exact Godot version | **Owner input** (§4), recorded by Codex. Never chosen. |
-| 2 | Which GUT release | **Rule**, not choice: matching pinned minor version, highest qualifying patch (§14) |
+| 2 | Which GUT release | **Rule**, not choice: matching pinned minor version, highest qualifying patch (§14). **The rule has since been evaluated for Codex: the answer is `v9.7.1`, with its tag commit and tree object recorded (§41.4).** Codex **verifies** that resolution; it does not repeat the selection, and it never uses `/releases/latest` |
 | 3 | Renderer | ADR-001 §2 — Compatibility |
 | 4 | Base resolution, tile size, scaling | Master Canon — Pixel contract; ADR-001 §3; §6.3 lists every setting verbatim |
 | 5 | Folder layout | `ARCHITECTURE.md` §2, reproduced exactly in §5 |
@@ -2947,6 +2981,7 @@ Every amendment keeps all of its other authority, unchanged.
 | **VS0-T01** | **ACCEPTED** | 2026-09-14 | content merged at `46f76ff`; **enforcement proven by T01R** | §37 |
 | **VS0-T01R** | **ACCEPTED** | 2026-09-14 | `679fabfd` (PR #6) | §37 |
 | **VS0-T02** | **ACCEPTED** | 2026-09-14 | `0ee4d69c` (PR #10) | §38 · §39.1 |
+| **VS0-T03** | **ACCEPTED** | 2026-09-14 | `9d29d052` (PR #12) | §40 · §39.2 |
 
 **This ledger is the only place task acceptance is recorded from 2026-09-14 onward.** A new task
 adds a row here. **It does not get an amendment identifier and it does not get a new section** —
@@ -2970,6 +3005,26 @@ acceptance is a status fact, not a change of rule (§37.4).
 **Dependency consequence.** §24 gives **T04 ← T02, T03**. **The T02 half of that dependency is
 satisfied. T04 remains blocked on VS0-T03**, which is now the last task standing between `main` and
 the test runner.
+
+### 39.2 VS0-T03 acceptance detail
+
+| Item | Recorded value |
+|---|---|
+| Pull request | **#12**, merged by GitHub's normal PR merge operation |
+| PR head | `ed42a36b3cedc5a63d6f3e8d0e027881d5f0d2cf` |
+| Merge commit | `9d29d0527fd720fecb83d83c28b0fc82e754c342` — two parents, `headRefOid != mergeCommit` (§34) |
+| `T03_BASE` | `eb844a036b8d60c14f7a56bcbbfca05603539c2e` — the PR #11 merge commit (§40.6.1) |
+| Versioned result | **39 `A` · 1 `M` · 0 `D` · 0 `R` · 0 `C`** — the closed 39-path set exactly, no missing and no extra path |
+| The single `M` | `/.gitignore`, `-evidence/` / `+/evidence/` and nothing else — **OWNER DECISION C8, executed by T03** (§40.6) |
+| Ownership markers | **35**, each exactly three lines, values verbatim from the §23 manifest, LF only |
+| `.gitkeep` | **3**, each the empty blob `e69de29b…` at 0 bytes, in `systems/`, `content/`, `data/generated/` only |
+| `systems/` and `content/` | exactly `README.md` + `.gitkeep`; **no nested directory** — a T03 acceptance invariant, not a permanent one (§40.5 C1) |
+| `tests/unit/test_folder_contract.gd` | **WRITTEN · COMMITTED · NOT EXECUTED — runs in VS0-T04** |
+| T02 content | **byte-identical** — blob identity verified for `project.godot`, `icon.svg`, all `presentation/boot/*`, `tests/canon/test_project_settings.gd` and every `docs/**` |
+| Headless boot | exit `0` under `4.7.2.stable.official.ed1daf0bf` |
+
+**Dependency consequence.** §24 gives **T04 ← T02, T03**. **Both are now ACCEPTED, so T04's
+dependency is fully discharged** and T04 is blocked only by its own authority preflight (§41).
 
 ---
 
@@ -3183,12 +3238,12 @@ requirements*, *Acceptance criteria* and *Evidence* rows · the **T03 result** t
 verification table (checks **1**, **3** and **10** added or restated, the rest renumbered) · §40.6
 (new). The **closed 39-path addition set is unchanged**, and so is every C1 – C7 conclusion.
 
-> **⚠ Superseded in part by C11 (sixth commit).** Commit 4 applied the `.gitignore` line **on the
+> **⚠ Superseded in part by C11 (seventh commit).** Commit 4 applied the `.gitignore` line **on the
 > branch**, to measure it. **C11 reverted that edit before merge**, because `T03_BASE` semantics
 > require **T03** to own the modification (§40.6.1). **OWNER DECISION C8 is unchanged and remains
 > APPROVED** — only the commit that performs it moved, from the authority patch to T03.
 
-**Sixth commit on the same PR — C11 sequencing correction (§40.6.1):** `/.gitignore` reverted to its
+**Seventh commit on the same PR — C11 sequencing correction (§40.6.1):** `/.gitignore` reverted to its
 `main` content, so the patch's cumulative result has **no `.gitignore` diff at all** · §40.6 heading,
 measurement paragraph and decision box · **new §40.6.1** · §23 VS0-T03 *Implementation requirements*
 (binding order, `git add -f` forbidden) · this paragraph. **The authority patch is documentation
@@ -3201,3 +3256,455 @@ decision**, including `application/config/version = "0.1.0"` and the non-resizab
 · the **autoload cap and order** · **canon** · **gameplay** · **persistence architecture** ·
 **repository enforcement, the ruleset and `bypass_actors: []`** · **A-01 … A-07** · **§37** · **§38**
 · every VS0 task other than T03, and T04 only by the single clause named above.
+
+---
+
+## 41. VS0-T04 authority preflight corrections
+
+*Owner-approved 2026-09-14, before VS0-T04 was handed to Codex. Documentation only.*
+**This is a preflight correction record, not an ADR.** **ADR-002 remains ACCEPTED and unchanged.**
+
+### 41.1 Why this record exists
+
+VS0-T04 is the first task in the project that **executes** anything. Until it merges, every test in
+the repository is written, committed and unproven: `tests/canon/test_project_settings.gd` (T02,
+§39.1) and `tests/unit/test_folder_contract.gd` (T03, §39.2) have never run. T04 is therefore not
+"add a test framework" — it is **the task that converts two paper assertions into evidence**, and
+the quality of that conversion is the whole point.
+
+Read against that standard, the T04 packet as originally written carried four gaps:
+
+1. **The framework version was a rule, never a resolution.** §14 said "the release matching Godot
+   4.7, highest qualifying patch" and left the resolution to implementation time. That is a decision,
+   not a lookup, and **the obvious shortcut resolves to the wrong engine line** — see §41.4.
+2. **The write scope included all of `/tests/**`.** A task whose purpose is to prove two tests must
+   not hold write authority over them; the cheapest way to make a failing suite green is to edit the
+   suite. Corrected in §41.6 and in the §23 packet.
+3. **"Headless run produces JUnit XML and a correct exit code" named nothing.** No file, no command
+   line, no output path, and — decisively — **no proof that any test actually ran.** A suite that
+   collects zero tests exits `0`. Corrected in §41.6 and §41.7.
+4. **The negative proof was one sentence with no mechanism.** "A self-test asserting the runner
+   reports a deliberately failing test as a failure" does not say where the fixture lives, how the
+   failure is detected, or what "detected" means. Corrected in §41.8 and §41.9.
+
+The correction principle is the one already standing in this document: **name the artifact only the
+correct path can produce.** Exit code `0` is producible by a runner that ran nothing. A JUnit
+`<testsuite>` element bearing the exact path of an accepted test, with a passing `<testcase>` inside
+it, is not.
+
+### 41.2 What this record does not change
+
+- **ADR-002 remains ACCEPTED and unchanged.** This is not a new ADR and supersedes no ADR.
+- **The engine pin.** Godot **4.7.2-stable**, `4.7.2.stable.official.ed1daf0bf`, standard GDScript,
+  no .NET. T04 adapts to the engine; the engine never adapts to T04.
+- **Everything accepted in VS0-T03.** The closed 39-path set, the 35-directory manifest, the
+  three-line ownership markers and their literal values, the `.gitkeep` placements, and the merged
+  text of `tests/unit/test_folder_contract.gd`. **T03 is accepted (§39.2) and is not reopened.**
+- **The two deferred findings D11 and D12 (§40.4), preserved exactly.** `core/contracts/result.gd`
+  has no owning task and is **to be resolved in the VS0-T07 / VS0-T08 preflight**; the gate-1
+  `print(` conflict with the accepted T02 files is **to be resolved in the VS0-T05 preflight**.
+  **Neither is solved during T04, and neither blocks T04** — T04 adds no `core/` file and runs no
+  convention lint.
+- **Canon, gameplay, and the persistence architecture.** T04 touches none of them.
+- **A-01 … A-07, §37, §38, §39 and §40.** No text inside those sections was edited by this patch,
+  with the single exception recorded in §41.3.
+
+### 41.3 Corrections carried by this patch
+
+| # | Where | Correction |
+|---|---|---|
+| 1 | Header `TASK STATUS` | T03 added to ACCEPTED; NEXT becomes VS0-T04; pointers to §39.2 and §41 |
+| 2 | **§39** ledger | New row: **VS0-T03 · ACCEPTED · 2026-09-14 · `9d29d052` (PR #12)** |
+| 3 | **§39.2** (new) | The VS0-T03 acceptance detail, and the consequence that T04's dependency is discharged |
+| 4 | **§40.7** | `Sixth commit` → `Seventh commit`, twice. **Provenance only** — C11 was GitHub commit #7 on PR #11, not #6. **No binding value, decision or conclusion in §40 changed**, and this is the only edit made inside §30 – §40 |
+| 5 | **§20** DoD items 3, 4 and 8 | Item 8: "a one-line `README.md`" → the **three-line** `Layer:` / `Owner:` / `Never:` marker contract that T03 actually shipped. Item 3: `evidence/` → **`/evidence/`**, the root anchoring T03 applied under OWNER DECISION C8. Item 4: GUT provenance stated precisely — version, tag, tag commit, URL, measured archive SHA-256, vendored path |
+| 6 | **§5** tree | `tools/test/` added with its three T04 files; an explicit note that `tools/ci/` is **deliberately absent** |
+| 7 | **§14** | The GUT version row resolved to `v9.7.1`; new rows for the CLI entry point, the runner and the three test directories |
+| 8 | **§23 VS0-T04** | The packet, rewritten: required reading, dependencies, branch, **narrowed Allowed paths**, Forbidden paths, implementation requirements, tests, acceptance criteria, evidence, parallelization, stop conditions |
+| 9 | **§25** | An explanatory note under the shared-file table: `/tests/**` is no longer "T04's ownership", and why the two accepted packets are annotated rather than rewritten |
+| 10 | **§26** | Row 3 marked ACCEPTED; row 4 states what makes gate 5 actually green |
+| 11 | **§19** | The gate-5 row: the test **names** in the JUnit report are the proof, and acceptance parses them |
+| 12 | **§22** | Stop condition 5 points at the complete T04 stop list in §41.12 |
+| 13 | **§27** | Row 2: the §14 rule has now been **evaluated** — Codex verifies `v9.7.1` rather than re-deciding it |
+| 14 | **§41** | This section |
+
+### 41.4 GUT release — mechanically resolved, not chosen
+
+§14's rule is *"the GUT release whose declared compatibility matches **Godot 4.7**; if several
+qualify, take the highest patch."* Resolved on **2026-09-14** against the upstream repository
+`bitwes/Gut`, by reading the release list, the tags and the artifacts themselves.
+
+| Fact | Measured value |
+|---|---|
+| Selected release | **`v9.7.1`** |
+| Tag commit | **`aeb5d4f3f7f0a6c9b5e178876d6c99b791fda605`** |
+| `addons/gut` tree object at that tag | **`5d6893836af4917ee62b1a395125a7530b1f239d`** |
+| `addons/gut/plugin.cfg` at that tag | declares `version="9.7.1"` |
+| Releases in the 9.7 line | **`v9.7.0` and `v9.7.1` only.** Both non-draft and non-prerelease. **No `v9.7.2` exists** |
+| Declared compatibility, read from the artifact | upstream `project.godot` at `v9.7.1` and `v9.7.0`: `config/features=PackedStringArray("4.7")` |
+| The previous line, for contrast | upstream `project.godot` at `v9.6.1` and `v9.6.0`: `config/features=PackedStringArray("4.6")` |
+
+**`v9.7.1` is therefore the highest qualifying patch on the 4.7 line, and the resolution is a
+lookup, not a preference.**
+
+**The trap, recorded because it nearly cost the engine pin.** GitHub's generic
+`/repos/bitwes/Gut/releases/latest` endpoint returns **`v9.6.1`** — a release on the **Godot 4.6**
+line. "Latest" on that endpoint is a publication-time ordering, not a compatibility statement.
+**An implementation that had reached for the obvious `latest` shortcut would have vendored a 4.6-line
+GUT against a 4.7.2 engine**, and the failure would have surfaced as a confusing runtime error inside
+a vendored third-party tree rather than as a version mismatch. Hence the standing prohibition:
+
+> **`/releases/latest` is not the selection mechanism for GUT and must never be used as one.** The
+> selection mechanism is the rule in §14, evaluated against the **declared compatibility of each
+> candidate release**. This record already performed that evaluation; T04 **verifies** it and does not
+> repeat the choice.
+
+**What T04 must independently re-verify before vendoring:** that `v9.7.1` is still non-draft and
+non-prerelease, that its declared compatibility is still the 4.7 line, that the tag commit and the
+`addons/gut` tree object still equal the values above, and that **no later qualifying 9.7.x patch has
+appeared**. **If a later qualifying patch exists: STOP and report. Do not silently substitute it** —
+the pinned value is authority, and changing it is an owner decision (§41.12).
+
+### 41.5 Vendoring, acquisition, checksum, and the pin gate
+
+**What is vendored.** Exactly the upstream **`addons/gut/`** subtree of `v9.7.1`, placed at
+`addons/gut/` in this repository. **Nothing from the upstream repository root is vendored** — not its
+`project.godot`, not its `README`, not its own test suite, not its CI configuration, not its
+`.gitattributes`. The upstream project is a Godot project that *contains* an addon; **only the addon
+crosses the boundary.**
+
+**A convenient property of the tag archive, measured and recorded so it is not rediscovered.**
+Upstream's `.gitattributes` applies `* export-ignore` and then un-excludes `/addons` and
+`/addons/**`. The consequence is that the tag ZIP contains **one top-level directory
+`Gut-9.7.1/` holding `addons/gut/` and nothing else** — **259 files, zero upstream root content.**
+**The tag archive is therefore exactly the vendoring payload**, and no filtering step is required.
+**This is a measured property, not a permission:** if a future archive were to contain root content,
+the rule above still governs and the extra content is still excluded.
+
+**Acquisition and checksum — the order is binding.**
+
+1. Download the canonical archive
+   **`https://github.com/bitwes/Gut/archive/refs/tags/v9.7.1.zip`**. A tag URL, never a branch URL,
+   never `latest`.
+2. **Compute the SHA-256 of the downloaded file before extracting it.** A hash taken after extraction
+   hashes the extractor's output, not the artifact that was received.
+3. Record the measured hash, together with the URL, in `docs/ENGINE.md` and in
+   `evidence/t04_gut_archive_sha256.txt`.
+4. Extract, and copy **only** `Gut-9.7.1/addons/gut/` to `addons/gut/`.
+5. Prove the copy is faithful by the manifest comparison of §41.11.
+
+> **The SHA-256 is deliberately absent from this authority patch.** It is a **measured implementation
+> value** and belongs in `docs/ENGINE.md`, written by T04 from an actual download. **Codex must not
+> copy a hash from a document; it must measure one, and it must not invent one.**
+
+**Network.** Network access is authorized for **acquisition only**, once, during T04. **After
+vendoring, no build, run or test step may reach the network, and CI must NEVER download GUT.** The
+vendored subtree is committed; that is the whole reason it is committed.
+
+**No project-owned modification inside the vendored subtree.** Not a fix, not a shim, not a
+formatting pass, not a stripped file. **If the vendored subtree must be patched for compatibility:
+STOP and report** (§41.12). A patched vendor tree is no longer the artifact whose checksum was
+recorded, and the checksum would then be documentation of something that no longer exists.
+
+**No plugin activation.** GUT is driven **exclusively through its command-line entry point**
+`addons/gut/gut_cmdln.gd`. It is **never enabled as an editor plugin**, and **`project.godot` is not
+modified by T04** — the autoload list, the plugin list and every other section stay as T02 left them
+(§39.1). The runner needs the files on disk; it does not need the editor to know about them.
+
+**The pin gate.** The vendored GUT must load and run headless under
+**`4.7.2.stable.official.ed1daf0bf`**. If it does not:
+
+> **Godot 4.7.2 wins.** Do not change the engine. Do not choose gdUnit4 or any other framework. Do
+> not patch GUT. **STOP and report to the owner.**
+
+### 41.6 The runner — exact files, exact scope, exact command
+
+**Exactly three files are authored by T04 under `tools/test/`, and no others:**
+
+| Path | Role |
+|---|---|
+| `tools/test/run_gut.ps1` | The single public runner. Every execution of the suite, local or later in CI, goes through it |
+| `tools/test/verify_runner_failure.ps1` | The negative proof (§41.9) |
+| `tools/test/fixtures/test_deliberate_failure.gd` | The failing fixture (§41.8) |
+
+**No `.gutconfig.json` is created anywhere in the repository.** Configuration lives in the runner,
+in the open, under review — not in a JSON file that silently changes what a command means.
+
+**The three accepted test roots, and no others:**
+
+```
+tests/unit/
+tests/integration/
+tests/canon/
+```
+
+**`/tests/**` is not in T04's write scope.** `tests/canon/test_project_settings.gd` and
+`tests/unit/test_folder_contract.gd` are **read-only inputs**: T04 runs them, and **must not
+rewrite, weaken, skip, rename, move or delete either one.** If either fails, **that is a result to
+report, not a defect to edit away** (§41.12).
+
+**Mode 1 — NORMAL SUITE.** The default. Runs every test script under the three accepted roots.
+**One invocation; the arguments are listed one per line for legibility only:**
+
+```
+<GodotPath>
+  --headless
+  --path .
+  -s addons/gut/gut_cmdln.gd
+  -gconfig=
+  -gdir=res://tests/unit,res://tests/integration,res://tests/canon
+  -ginclude_subdirs
+  -gexit
+  -gjunit_xml_file=res://evidence/gut_results.xml
+```
+
+**Mode 2 — EXPLICIT TEST.** One named script, used by the failure verifier:
+
+```
+<GodotPath>
+  --headless
+  --path .
+  -s addons/gut/gut_cmdln.gd
+  -gconfig=
+  -gtest=<res:// path to exactly one script>
+  -gexit
+  -gjunit_xml_file=<res:// path to the JUnit output>
+```
+
+**Why each part is there, with the measured option meanings:**
+
+| Element | Measured meaning at `v9.7.1` |
+|---|---|
+| `addons/gut/gut_cmdln.gd` | The CLI entry point. `extends SceneTree`, delegates to `addons/gut/cli/gut_cli.gd`. Invoked with `-s`, so **no scene, no plugin, no editor** |
+| `-gconfig=` | `-gconfig` selects a config file; **the empty value means "use no config file at all."** The run is therefore fully determined by the command line and cannot be altered by a stray file |
+| `-gdir=` | *"List of directories to search for test scripts in"* — comma-separated |
+| `-ginclude_subdirs` | Recurse into subdirectories of those roots |
+| `-gtest=` | *"List of full paths to test scripts to run"* — the explicit-test mode |
+| `-gexit` | Exit when the run finishes instead of leaving the process alive |
+| `-gjunit_xml_file=` | Write the JUnit XML report to this path |
+| `-gjunit_xml_timestamp` | **Default `false`.** When true, **the file name itself carries a timestamp.** It must be left at the default, or the evidence path stops being stable and nothing can be verified by path |
+
+**Runner obligations, all binding:**
+
+- **`-GodotPath` is a required parameter.** No default, no PATH lookup, no discovery, no guessing.
+  The engine binary is a pinned owner-machine artifact (§6.1); a runner that finds its own engine can
+  silently run the wrong one. Invoked without it, the runner fails clearly and exits non-zero.
+- The runner **creates `evidence/` if it does not exist**, before invoking the engine.
+- The runner **propagates the engine's exit code verbatim** as its own. **It never translates failure
+  into success**, never clamps, never re-maps, and never exits `0` because it "handled" an error.
+- The runner **does not swallow `stdout` or `stderr`.** Both reach the console and the evidence
+  transcript verbatim.
+- The runner **contains no test logic and no assertions.** It is an invoker.
+
+**Measured exit codes**, from `addons/gut/gui/GutRunner.gd` at `v9.7.1`: `const EXIT_OK = 0` and
+`const EXIT_ERROR = 1`, with `if(gut.get_fail_count() > 0): exit_code = EXIT_ERROR`. **A run with at
+least one failing test exits `1`.**
+
+### 41.7 Proving the suite actually ran
+
+**Exit code `0` is not acceptance.** A run that collects zero tests, or that silently collects only
+one of the two accepted tests, also exits `0`. **T04 is not accepted because GUT returned success; it
+is accepted because the JUnit XML names both accepted tests and reports them passing.**
+
+The JUnit schema below was **measured mechanically** from `addons/gut/junit_xml_export.gd` at
+`v9.7.1`. It is recorded here so the proof can be written against real element and attribute names
+rather than guessed ones:
+
+| Element | Attributes, as emitted |
+|---|---|
+| `<testsuites>` | `name="GutTests"`, `failures`, `tests` |
+| `<testsuite>` | `name` — **the test script's path with the `res://` prefix stripped** — plus `tests`, `failures`, `skipped`, `time` |
+| `<testcase>` | `name` — the test function's name — plus `assertions`, `status`, `classname` (**the same stripped script path**), `time` |
+| `<failure>` | emitted **only** when a testcase's `status` is `fail`; `message="failed"`, body in `CDATA` |
+| `<skipped>` | emitted for a pending test; `message="pending"` |
+
+**The required proof for the normal suite.** Parse `evidence/gut_results.xml` — **parse it, do not
+grep it** — and require **all** of:
+
+1. A `<testsuite>` whose `name` attribute is **exactly** `tests/canon/test_project_settings.gd`.
+2. A `<testsuite>` whose `name` attribute is **exactly** `tests/unit/test_folder_contract.gd`.
+3. Each of those two suites reports `failures="0"` and `tests` greater than zero.
+4. The root `<testsuites>` reports `failures="0"`.
+5. The runner's own exit code is `0`.
+
+**All five, or the run is not accepted.** This is the same principle the T03 contract was built on:
+**prove membership of a closed set, never a property of a name.** Two exact path strings are a closed
+set; "some tests passed" is not.
+
+> **If the exact option syntax, element names or attribute names differ when tested against the
+> pinned release, STOP and report before changing this authority text.** Do not guess an element
+> name, and **do not make Codex invent a workaround** around a schema that does not match.
+
+### 41.8 The deliberate-failure fixture
+
+`tools/test/fixtures/test_deliberate_failure.gd` — **deliberately outside the three accepted test
+roots.**
+
+That placement is the entire design. The fixture must be reachable by the **explicit-test** mode and
+**unreachable by the normal suite**, because `-gdir` names only `tests/unit/`, `tests/integration/`
+and `tests/canon/`. A fixture that lived under `tests/` would be collected by the normal suite and
+**the project's own test run would be permanently red** — a runner proof that breaks the thing it is
+proving.
+
+Requirements: it `extends GutTest`; it contains **exactly one** test function; that function fails
+**by a deliberate, unambiguous assertion**, not by a syntax error, a missing file, a crash or an
+engine-level abort. **The point is to prove that a reported test failure propagates — not that a
+broken script propagates.** Its docstring states plainly that it is a runner-verification fixture,
+that it is expected to fail, and that it is never part of the project suite.
+
+### 41.9 The negative verifier
+
+`tools/test/verify_runner_failure.ps1` drives the fixture **through `run_gut.ps1`** — the same
+runner, not a private copy of the command line. A proof that exercises a different code path proves
+nothing about the runner that is actually used.
+
+It invokes the runner in **EXPLICIT TEST** mode on
+`res://tools/test/fixtures/test_deliberate_failure.gd`, with the JUnit output directed to
+`res://evidence/gut_runner_failure.xml` — **a separate file, so the failure probe never overwrites
+the normal suite's evidence.**
+
+**The inner run must return exactly `1`** (measured: `EXIT_ERROR = 1`, §41.6). **If the measured code
+differs: STOP and report before changing this authority.** Do not adjust the expectation to whatever
+the tool happened to return — an expectation edited to match an observation proves nothing.
+
+**The verifier exits `0` only when all five conditions hold:**
+
+1. The inner runner invocation exited with **exactly `1`**.
+2. `evidence/gut_runner_failure.xml` exists and **parses as well-formed XML**.
+3. It contains a `<testsuite>` whose `name` attribute is **exactly**
+   `tools/test/fixtures/test_deliberate_failure.gd`.
+4. That suite contains a `<testcase>` with `status="fail"` carrying a child `<failure>` element.
+5. The root `<testsuites>` reports a `failures` count of at least `1`.
+
+**Any other outcome — including the inner run passing, the XML being absent, the XML being
+unparseable, or the expected suite being missing — makes the verifier exit non-zero.**
+
+> **Do not validate the failure using a loose `stdout` substring alone. Parse the XML mechanically.**
+> A substring match on console output is satisfied by a log line, a stack trace, a path that happens
+> to contain the word, or a message from an entirely different test.
+
+### 41.10 Required acceptance runs, and the acceptance criteria
+
+**Both runs are required. A runner that has only ever returned success is NOT accepted.**
+
+| Run | What is executed | Required outcome |
+|---|---|---|
+| **A — normal suite** | `tools/test/run_gut.ps1 -GodotPath <pinned engine>` | Exit `0`; `evidence/gut_results.xml` written; **the five-part proof of §41.7 satisfied** |
+| **B — failure probe** | `tools/test/verify_runner_failure.ps1 -GodotPath <pinned engine>` | **Inner** run exits `1`; `evidence/gut_runner_failure.xml` written; **outer** verifier exits `0` |
+
+**Acceptance criteria — all eighteen:**
+
+1. `docs/ENGINE.md` records the GUT version **`9.7.1`**.
+2. `docs/ENGINE.md` records the tag **`v9.7.1`** and the tag commit
+   **`aeb5d4f3f7f0a6c9b5e178876d6c99b791fda605`**.
+3. `docs/ENGINE.md` records the canonical archive URL — a tag URL, not `latest`, not a branch.
+4. `docs/ENGINE.md` records the **measured** SHA-256 of that archive, **hashed before extraction**.
+5. `docs/ENGINE.md` records the vendored path `addons/gut/`.
+6. The vendored subtree contains **only** content from upstream `addons/gut/`; **no upstream root
+   file is present anywhere in the repository.**
+7. **No file inside `addons/gut/` differs from upstream** — proven by the manifest comparison of
+   §41.11, not by inspection.
+8. **`project.godot` is unchanged**, and GUT is **not** enabled as an editor plugin.
+9. **No `.gutconfig.json` exists anywhere** in the repository.
+10. Exactly the **three** T04-authored files of §41.6 exist under `tools/test/`, and no others.
+11. `run_gut.ps1` **requires `-GodotPath`** and fails clearly, with a non-zero exit, when it is
+    omitted.
+12. **Run A exits `0`.**
+13. **Run A writes `evidence/gut_results.xml`.**
+14. **Run A's XML satisfies the five-part proof of §41.7** — both accepted tests present by exact
+    path, both passing, zero failures overall.
+15. **Run B's inner run exits exactly `1`.**
+16. **Run B's XML contains the fixture's failing `<testcase>`** as specified in §41.9.
+17. **Run B's outer verifier exits `0`.**
+18. `git diff --name-status <base>...HEAD` shows changes **only** under `/addons/gut/**`,
+    `/tools/test/**` and `/docs/ENGINE.md` — **zero entries under `/tests/**`, and `project.godot`
+    absent from the list.**
+
+### 41.11 Evidence, and the vendored-tree proof
+
+**Six artifacts, all written under the gitignored root `/evidence/`, and none of them committed:**
+
+| Artifact | Content |
+|---|---|
+| `evidence/gut_results.xml` | Run A's JUnit report |
+| `evidence/gut_runner_failure.xml` | Run B's inner JUnit report |
+| `evidence/t04_normal_run.txt` | Run A's **verbatim** `stdout` + `stderr`, and its exit code |
+| `evidence/t04_failure_probe.txt` | Run B's **verbatim** `stdout` + `stderr`, and **both** exit codes — inner and outer |
+| `evidence/t04_gut_archive_sha256.txt` | The canonical URL and the **measured** pre-extraction SHA-256 |
+| `evidence/t04_vendor_manifest.txt` | The vendored-tree manifest below |
+
+**`/evidence/` is gitignored at the repository root** — T03 made that anchoring exact (§40.6). CI does
+not exist until T14, so evidence is attached to the PR **by hand, verbatim, not summarized.**
+
+**`tools/evidence/**` is T15-owned and must NOT be used for T04 output.** It is the home of the
+capture *tooling*, not of anything T04 produces. The two are one character apart and mean entirely
+different things.
+
+**The vendored-tree proof.** A checksum of the archive proves what was *downloaded*. It does not
+prove what was *committed*. The manifest closes that gap:
+
+- For every file under `addons/gut/`, emit one line: the file's **SHA-256**, then its path relative
+  to `addons/gut/`.
+- **Sort by path, ascending, byte-wise** — so the manifest is deterministic and two machines produce
+  the same file.
+- Compute the **same** manifest over the extracted `Gut-9.7.1/addons/gut/` tree.
+- **The two manifests must be byte-identical.** Not "equivalent", not "no meaningful differences" —
+  identical. Any difference means a file was added, removed, modified or renamed, and that is a stop
+  (§41.12).
+- Write the repository-side manifest to `evidence/t04_vendor_manifest.txt`. **It is not committed** —
+  it is evidence of a state, and the state itself is in the commit.
+
+### 41.12 Stop conditions
+
+**Every entry is a hard stop: stop, report to the owner, and wait. Do not improvise around a stop.**
+
+1. A **later qualifying 9.7.x patch** exists at implementation time. **Do not silently substitute
+   it** — the pinned value is authority and changing it is an owner decision.
+2. The `v9.7.1` tag commit is not `aeb5d4f3f7f0a6c9b5e178876d6c99b791fda605`, or its `addons/gut`
+   tree object is not `5d6893836af4917ee62b1a395125a7530b1f239d`.
+3. `v9.7.1` proves to be draft or prerelease, or its declared compatibility is not the Godot 4.7
+   line.
+4. The archive at the canonical URL does not extract to exactly one top-level directory containing
+   `addons/gut/`, or carries upstream root content.
+5. The vendored subtree does not match the archive payload byte-for-byte (§41.11).
+6. **The vendored subtree would have to be patched, shimmed or modified for any reason**, including
+   compatibility.
+7. **The vendored GUT does not load or run under `4.7.2.stable.official.ed1daf0bf`.** Godot 4.7.2
+   wins: do not change the engine, do not choose another framework, do not patch GUT.
+8. **Any change to `project.godot` appears necessary** — including enabling GUT as an editor plugin.
+9. **Any change inside `/tests/**` appears necessary**, for any reason.
+10. The normal suite exits `0` but the XML **does not** satisfy the five-part proof of §41.7 — for
+    example, one of the two accepted suites is missing, or zero tests were collected.
+11. **Either accepted test fails.** Report the failure with the XML. **Do not edit the test, do not
+    skip it, do not mark it pending.**
+12. The inner failure run's exit code is **anything other than `1`**. Report the measured value; do
+    not edit the expectation to match it.
+13. The measured GUT CLI options, JUnit element names or attribute names **differ from §41.4 – §41.7**
+    when run against the pinned release. **Do not guess and do not invent a workaround.**
+14. Any required change falls **outside the three Allowed paths**, or **network access is required at
+    any point after vendoring**.
+
+### 41.13 Scope
+
+Changed: header `TASK STATUS` · **§5** tree (`tools/test/` added, `tools/ci/` distinction recorded) ·
+**§14** (version row resolved; three rows added) · **§19** (the gate-5 row) · **§20** DoD items 3, 4
+and 8 · **§22** stop condition 5 (a pointer; the condition itself is unchanged) · **§23 VS0-T04** (the
+packet, rewritten) · **§25** (one explanatory note under the shared-file table; **no table row
+edited**) · **§26** rows 3 and 4 · **§27** row 2 · **§39** (one ledger row) · **§39.2** (new) ·
+**§40.7** (`Sixth` → `Seventh`, twice — **provenance only**) · **§41** (this section) ·
+`CODEX_VS0_HANDOFF.md` (task status, fixed values, waves B and C, stop condition 6).
+
+**No other text inside §30 – §40 was edited.** A-01 … A-07 keep their wording; §37, §38, §39.1 and
+every §40 decision, measurement and conclusion keep theirs. **No accepted amendment was superseded,
+and no ADR was changed.**
+
+Unchanged: the **engine pin** · the **renderer** and the **320 × 180 pixel contract** · every
+**VS0-T02 technical decision** (§39.1) · **every VS0-T03 binding value** — the closed 39-path set,
+the 35-directory manifest, the three-line markers and their literal values, the `.gitkeep`
+placements, and the merged text of `tests/unit/test_folder_contract.gd` (§39.2) · **D11 and D12**
+(§40.4), preserved exactly and still deferred · the **autoload cap and order** · **canon** ·
+**gameplay** · **persistence architecture** · **repository enforcement, the ruleset and
+`bypass_actors: []`** · every VS0 task other than **T04**.
+
+**This patch is documentation only.** It vendors nothing, downloads nothing into the repository,
+creates no runner, runs no test, and touches no implementation file.
