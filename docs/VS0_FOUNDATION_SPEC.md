@@ -3492,7 +3492,7 @@ report, not a defect to edit away** (§41.13).
 
 ```powershell
 param(
-    [Parameter(Mandatory = $true)] [string] $GodotPath,
+    [string] $GodotPath,
     [string] $TestPath,
     [string] $JUnitPath
 )
@@ -3500,9 +3500,46 @@ param(
 
 | Parameter | Required | Meaning |
 |---|---|---|
-| `-GodotPath <string>` | **Yes** | Path to the pinned engine binary. **No default, no PATH lookup, no discovery** |
+| `-GodotPath <string>` | **Logically required — see below** | Path to the pinned engine binary. **No default, no PATH lookup, no discovery** |
 | `-TestPath <string>` | No | A single `res://` path to **exactly one** test script |
 | `-JUnitPath <string>` | No | A single `res://` path for the JUnit report |
+
+**`-GodotPath` is required, and `[Parameter(Mandatory = $true)]` must NOT be used to express that.**
+
+PowerShell's `Mandatory` attribute does not fail on a missing value — **it prompts the caller for
+one.** In an unattended or piped context that is a hang, not an error, and it makes the runner
+**interactive**. T04's runner must be **deterministic and non-interactive**: a missing argument is a
+failure, immediately and visibly, never a question.
+
+**The requirement is therefore expressed as an explicit check, at the very top of the script —
+before any filesystem mutation and before Godot is invoked:**
+
+```powershell
+if ([string]::IsNullOrWhiteSpace($GodotPath)) {
+    Write-Error '-GodotPath is required.'
+    exit 2
+}
+```
+
+**`IsNullOrWhiteSpace` is the whole contract in one call:** omitted, `$null`, empty and
+whitespace-only all take the same branch, and all exit **`2`**.
+
+**`2` is the runner-interface failure code, and it is deliberately distinct from GUT's own codes:**
+
+| Exit code | Meaning |
+|---|---|
+| **`0`** | GUT ran and every test passed |
+| **`1`** | GUT ran and reported at least one failing test |
+| **`2`** | **The runner was invoked wrongly and Godot was never started** |
+
+**Collapsing these would destroy the negative proof.** If a misinvocation also exited `1`, a typo in
+the verifier's arguments would be indistinguishable from a genuine reported test failure, and
+`verify_runner_failure.ps1` would pass while proving nothing. **Once Godot has actually been invoked,
+the runner propagates GUT's process exit code verbatim — `0` and `1` are never remapped, and `2` is
+never produced after that point.**
+
+**Every other rejected combination below uses the same `2`**, for the same reason: they are all
+interface failures, detected before the engine starts.
 
 **Mode selection — `-TestPath` is the only switch, and no other is added:**
 
@@ -3513,10 +3550,10 @@ param(
 EXPLICIT TEST mode there is **no default** — the caller names the output, so a failure probe can never
 overwrite the suite's evidence.
 
-**Ambiguous combinations are rejected.** Each of these prints a clear message, **runs nothing**, and
-exits non-zero:
+**Ambiguous combinations are rejected.** Each of these prints a clear message, **runs nothing, never
+prompts, creates no directory**, and exits **`2`**:
 
-- `-GodotPath` missing, empty or whitespace.
+- `-GodotPath` missing, `$null`, empty or whitespace-only.
 - `-TestPath` supplied but not a `res://` path.
 - `-TestPath` naming more than one script — **the explicit mode takes one script, and a
   comma-separated list is rejected, not silently split.**
@@ -3582,10 +3619,16 @@ tools/test/run_gut.ps1 `
 
 **Runner obligations, all binding:**
 
-- **`-GodotPath` is a required parameter.** No default, no PATH lookup, no discovery, no guessing.
+- **`-GodotPath` is logically required.** No default, no PATH lookup, no discovery, no guessing.
   The engine binary is a pinned owner-machine artifact (§6.1); a runner that finds its own engine can
-  silently run the wrong one. Invoked without it, the runner fails clearly and exits non-zero.
-- The runner **creates `evidence/` if it does not exist**, before invoking the engine.
+  silently run the wrong one. Invoked without it, the runner **prints the error and exits `2`** — it
+  **never prompts**, and it **never reaches the engine**.
+- **Validation happens first, and nothing else happens before it.** On an interface failure the
+  runner **does not create `evidence/`**, does not touch any file, and does not start Godot. A failed
+  invocation must leave the working tree exactly as it found it — otherwise the self-check of
+  criterion 11 would itself change the state it is checking.
+- The runner **creates `evidence/` if it does not exist** — **after** validation has passed, and
+  before invoking the engine.
 - The runner **propagates the engine's exit code verbatim** as its own. **It never translates failure
   into success**, never clamps, never re-maps, and never exits `0` because it "handled" an error.
 - The runner **does not swallow `stdout` or `stderr`.** Both reach the console and the evidence
@@ -3723,7 +3766,26 @@ that it is expected to fail, and that it is never part of the project suite.
 runner, not a private copy of the command line. A proof that exercises a different code path proves
 nothing about the runner that is actually used.
 
-It invokes the runner in **EXPLICIT TEST** mode (§41.7), **literally this and nothing else**:
+**Its own interface obeys the same non-interactive rule as the runner (§41.7):**
+
+```powershell
+param(
+    [string] $GodotPath
+)
+
+if ([string]::IsNullOrWhiteSpace($GodotPath)) {
+    Write-Error '-GodotPath is required.'
+    exit 2
+}
+```
+
+**`[Parameter(Mandatory = $true)]` must not be used here either** — it prompts instead of failing,
+and a verification tool that can block on a prompt is not a verification tool. Missing, `$null`,
+empty and whitespace-only `-GodotPath` all exit **`2`** — the **verifier-interface failure code**,
+distinct from the outer verifier's `0` (proof succeeded) and its non-zero verdict failure. The
+verifier **passes `-GodotPath` straight through and invents no engine path of its own.**
+
+It then invokes the runner in **EXPLICIT TEST** mode, **literally this and nothing else**:
 
 ```powershell
 tools/test/run_gut.ps1 `
@@ -3733,9 +3795,8 @@ tools/test/run_gut.ps1 `
 $innerExit = $LASTEXITCODE
 ```
 
-The verifier itself takes **`-GodotPath` as a required parameter** and passes it straight through;
-it invents no engine path of its own. The JUnit output goes to **a separate file, so the failure
-probe never overwrites the normal suite's evidence.**
+The JUnit output goes to **a separate file, so the failure probe never overwrites the normal suite's
+evidence.**
 
 **The inner run must return exactly `1`** (measured: `EXIT_ERROR = 1`, §41.7). **If the measured code
 differs: STOP and report before changing this authority.** Do not adjust the expectation to whatever
@@ -3743,7 +3804,9 @@ the tool happened to return — an expectation edited to match an observation pr
 
 **The verifier exits `0` only when all five conditions hold:**
 
-1. The inner runner invocation exited with **exactly `1`** — `$innerExit -eq 1`.
+1. The inner runner invocation exited with **exactly `1`** — `$innerExit -eq 1`. **Not merely
+   "non-zero": `2` would mean the runner was invoked wrongly and Godot never started (§41.7), which
+   proves nothing about failure propagation and must fail the verifier.**
 2. `evidence/gut_runner_failure.xml` exists and **parses as well-formed XML** — loaded with
    `[xml]$doc = Get-Content -Raw -Path …` under `$ErrorActionPreference = 'Stop'`, so a missing or
    malformed file is a terminating error and the verifier exits non-zero.
@@ -3791,8 +3854,12 @@ unparseable, or the expected suite being missing — makes the verifier exit non
 8. **`project.godot` is unchanged**, and GUT is **not** enabled as an editor plugin.
 9. **No `.gutconfig.json` exists anywhere** in the repository.
 10. Exactly the **three** T04-authored files of §41.7 exist under `tools/test/`, and no others.
-11. `run_gut.ps1` **requires `-GodotPath`** and fails clearly, with a non-zero exit, when it is
-    omitted.
+11. **The runner's interface self-check.** Invoking `run_gut.ps1` **without `-GodotPath`**:
+    **does not prompt** · **does not invoke Godot** · **does not create `evidence/` as a side
+    effect** · emits the clear required-parameter error · and **exits exactly `2`**. The same holds
+    for an empty or whitespace-only value, and for `verify_runner_failure.ps1`. **This is an
+    interface self-check, not the deliberate GUT-failure probe** — the fixture contract of §41.9 is
+    untouched by it.
 12. **Run A exits `0`.**
 13. **Run A writes `evidence/gut_results.xml`.**
 14. **Run A's XML satisfies the five-part proof of §41.8** — both accepted tests present by exact
@@ -3891,9 +3958,12 @@ prove what was *committed*. The manifest closes that gap:
     not edit the expectation to match it.
 16. The measured GUT CLI options, JUnit element names or attribute names **differ from §41.5 – §41.8**
     when run against the pinned release. **Do not guess and do not invent a workaround.**
-17. **The `run_gut.ps1` parameter interface of §41.7 cannot be implemented as specified** because
-    actual PowerShell or GUT behaviour forbids it. **Report it; do not invent a different interface,
-    a third mode or an extra switch.**
+17. **The `run_gut.ps1` parameter interface of §41.7 cannot be implemented as specified** — the
+    **non-interactive** contract in particular: plain `[string]` parameters, explicit
+    `IsNullOrWhiteSpace` validation before any side effect, **exit `2`** on interface failure, **no
+    prompt under any circumstances**, and verbatim propagation of GUT's `0` / `1` thereafter. If
+    actual PowerShell or GUT behaviour forbids it, **report it; do not substitute another parameter
+    design, a different exit code, a third mode or an extra switch.**
 18. Any required change falls **outside the three Allowed paths**, or **network access is required at
     any point after vendoring**.
 
@@ -3936,6 +4006,25 @@ this paragraph.
 URL, the CLI and JUnit facts, the exit codes, the **three** committed `tools/test/` files, the three
 normal roots, both JUnit paths, and the `1` / `0` exit expectations are all exactly as first written.
 **D11 and D12 remain open; no ADR changed; §39 and §40.7 are untouched by R1.**
+
+**Third commit on the same PR — independent-review correction R2 (2026-09-14):** **§41.7** — the
+`run_gut.ps1` parameter block loses `[Parameter(Mandatory = $true)]`, which **prompts** rather than
+fails and would have made the runner interactive; `-GodotPath` becomes a plain `[string]` validated
+explicitly with `IsNullOrWhiteSpace` **before any side effect**, exiting **`2`**, the new
+runner-interface failure code held distinct from GUT's `0` and `1` · the runner-obligation bullets
+(validation first, **no `evidence/` creation on interface failure**) · **§41.10** — the same
+non-interactive interface for `verify_runner_failure.ps1`, and a note that an inner `2` must fail the
+verifier because it proves nothing about failure propagation · **§41.11** acceptance criterion **11**,
+made mechanically exact · **§41.13** stop **17**, extended to name the non-interactive contract · this
+paragraph.
+
+**R2 changes no measured value and no other rule.** `T04_BASE`, the branch name, GUT `v9.7.1`, the tag
+commit, the tree object, the archive URL, the checksum rule, the vendored subtree, the **three**
+`tools/test/` files, `-TestPath` as the sole mode switch, `-JUnitPath` semantics, the three normal
+roots, the XML verification block, the deliberate-failure fixture, **inner `1` / outer `0`**, the
+manifest byte format, the **18** stop conditions, the Allowed paths, the `/tests/**` read-only rule,
+the `project.godot` prohibition, the `.gutconfig.json` prohibition, **D11 / D12**, the T03 acceptance
+record, the §40.7 correction and the §20 disposition are **all exactly as they stood at R1.**
 
 **This patch is documentation only.** It vendors nothing, downloads nothing into the repository,
 creates no runner, runs no test, and touches no implementation file.
