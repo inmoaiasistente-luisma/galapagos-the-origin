@@ -20,9 +20,14 @@
                  the contract. Two facts to internalise before you read anything else —
                  T04's write scope does NOT include /tests/**, and a green exit code is
                  NOT acceptance. Before writing anything, run the pre-write gate in
-                 spec §41.4: origin/main MUST equal T04_BASE, the merge commit of the
-                 T04 authority PR. If it does not, STOP — do not rebase onto a newer
-                 main.
+                 spec §41.4: origin/main MUST equal T04_BASE. If it does not, STOP — do
+                 not rebase onto a newer main.
+                 STOP-01: T04's first attempt stopped during Run A — GUT v9.7.1 requires
+                 Godot class-name import and, without it, the GUT CLI exits 0 WITHOUT
+                 RUNNING ANY TEST. Read spec §42 in full. The runner now performs
+                 `--headless --path . --import` itself before every GUT test invocation,
+                 exit code 3 means import preparation failed, and T04_BASE HAS BEEN
+                 RE-ESTABLISHED: use the value in §42.11, not the earlier one.
     AUTHORITY LEVEL: 4 (operational handoff — subordinate to VS0_FOUNDATION_SPEC.md)
     FOR: Codex (implementation agent)
     SCOPE: VS0 only
@@ -63,6 +68,7 @@ the task, not from memory.
 | World tile | **16 × 16** |
 | Test framework | **GUT `v9.7.1`**, vendored at `addons/gut/`. Resolved mechanically by the §14 rule — **do not re-choose it, and never use GitHub's `/releases/latest`, which returns a Godot 4.6-line release** (spec §41.5) |
 | GUT tag commit | **`aeb5d4f3f7f0a6c9b5e178876d6c99b791fda605`** — verify it before vendoring |
+| GUT bootstrap | **GUT `v9.7.1` needs Godot's class-name import on a fresh checkout.** `tools/test/run_gut.ps1` performs `--headless --path . --import` itself before every GUT test invocation (spec §42). **Without it the GUT CLI exits `0` having run nothing** |
 | Autoloads in VS0 | **Exactly four**, in order: `EventBus` → `GameState` → `RngService` → `SaveManager` |
 | Save format | **JSON**, `save_version: 1` |
 | Default locale | `es`, fallback `en` |
@@ -99,7 +105,7 @@ Ten waves. Do not start a wave until the previous one is merged green.
 | **A** | T01 Repository bootstrap | Repo, LFS, ignore rules, README, PR template. **No workflow file, no required status checks — deferred to T14 by owner decision.** **Files are on `main`. T01 was ACCEPTED by the owner on 2026-09-14, once T01R proved enforcement (spec §37).** |
 | **A′** | **T01R Enforcement remediation** | The Phase-1 **ruleset**, and **live proof** that direct push, force-push and deletion of `main` are rejected and that a PR merges with 0 approvals. **Blocked every later wave; COMPLETE and ACCEPTED 2026-09-14 — the block is discharged (spec §37).** |
 | **B** | T02 Godot baseline · T03 Folder skeleton | 4.7.2 pinned, pixel contract, folder tree. **BOTH ACCEPTED 2026-09-14 — T02 in spec §39.1, T03 in spec §39.2. The wave is closed and nothing in it is reopened.** T03 delivered the directory topology, the 35 three-line ownership markers, `tests/unit/test_folder_contract.gd` (written, committed, **never yet executed**) and the single authorized `.gitignore` line change. |
-| **C** | T04 GUT | Headless test runner, gate 5. **NEXT. Its dependency on T02 and T03 is fully discharged; it is blocked only by its own authority preflight (spec §41), and by nothing else.** T04 vendors **GUT `v9.7.1`**, builds the three files under `tools/test/`, and **executes the two accepted tests for the first time in the project's history** — `tests/canon/test_project_settings.gd` and `tests/unit/test_folder_contract.gd`, both **read-only inputs** it may not rewrite. Acceptance requires the JUnit XML to **name both of them and report them passing**; exit `0` on its own is not acceptance (spec §41.8). |
+| **C** | T04 GUT | Headless test runner, gate 5. **NEXT — resumed after STOP-01 (spec §42): the first attempt stopped correctly during Run A, before any commit, because GUT's class_names were not imported. Nothing from that attempt carries over; re-measure everything from the NEW T04_BASE (§42.11).** Its dependency on T02 and T03 is fully discharged; it is blocked only by its own authority preflight (spec §41), and by nothing else.** T04 vendors **GUT `v9.7.1`**, builds the three files under `tools/test/`, and **executes the two accepted tests for the first time in the project's history** — `tests/canon/test_project_settings.gd` and `tests/unit/test_folder_contract.gd`, both **read-only inputs** it may not rewrite. Acceptance requires the JUnit XML to **name both of them and report them passing**; exit `0` on its own is not acceptance (spec §41.8). |
 | **D** | T05 Convention lint · T06 Layer lint · T07 Validator framework | Gates 1, 2, 3 (partial) |
 | **E** | T08 Canon Registry + generators | Gates 3, 4 complete |
 | **F** | T09 EventBus + GameState · T12 Localization | First two autoloads, ES/EN |
@@ -202,7 +208,10 @@ every time.
    stop list is spec §41.13, and it is longer than this one: a later qualifying 9.7.x patch, a tag
    commit mismatch, a vendored subtree that would have to be patched, a needed change to
    `project.godot` or to `/tests/**`, a suite that exits `0` without proving both accepted tests ran,
-   a failure probe that does not return exactly `1`. **Do not improvise around a stop.**
+   a failure probe that does not return exactly `1`, a non-zero `--import`, a missing class cache
+   after a successful import, or GUT still reporting missing `class_name`s after preparation.
+   **Do not improvise around a stop** — STOP-01 (spec §42) is exactly what stopping correctly looks
+   like: no commit, no workaround, a report.
 7. A required 2D feature is missing under the Compatibility renderer.
 8. The task would require an upward layer dependency, or a **layer-lint exception**.
 9. The task would require a **fifth autoload**.
